@@ -1,8 +1,4 @@
-# API Endpoints Documentation
-
-This FastAPI application provides endpoints for managing availability and matches in what appears to be a matching/pairing system (possibly for dating, networking, or similar use cases).
-
-## Overview
+# Match and Availabilities Microservices 
 
 The API has two main resource types:
 - **Availability**: Tracks which people are available and in which locations
@@ -315,38 +311,3 @@ Full server representation returned by GET requests:
     "updated_at": "2025-06-01T10:20:00Z"
   }
   ```
-
----
-
-### Model Hierarchy Summary
-
-```
-Availability Models:
-  AvailabilityBase (core fields)
-    ├── AvailabilityCreate (for POST)
-    └── AvailabilityRead (for GET, adds id + updated_at)
-  AvailabilityUpdate (partial, all optional)
-  AvailabilityRemove (for deletion tracking)
-  AvailabilityPoolBase (container/aggregation)
-
-Match Individual Models:
-  MatchIndividualBase (participant state)
-    ├── MatchIndividualCreate (for POST)
-    └── MatchIndividualRead (for GET, adds timestamps)
-  MatchIndividualUpdate (partial decision update)
-
-Match Models:
-  MatchBase (two participants + acceptance flag)
-    ├── MatchCreate (for POST, uses MatchIndividualCreate)
-    ├── MatchRead (for GET, adds match_id + timestamps)
-    └── MatchRemove (for deletion tracking)
-  MatchUpdate (partial, all optional)
-```
-
-## Implementation Notes
-
-1. **All endpoints need implementation** - they currently raise `501 NOT IMPLEMENTED`
-2. **Match acceptance flow** should work like:
-   - Match is created with both participants' `accepted` status as `None`
-   - Each participant calls `PATCH /matches/{match_id}/{person_id}?action=accept` 
-   - System automatically sets `accepted_by_both=True` when both accept and removes the match if one rejects. 
