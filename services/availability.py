@@ -67,15 +67,6 @@ def delete_availability(availability_id: UUID) -> None:
     )
 
 
-@router.patch("/availability/{availability_id}", response_model=AvailabilityPoolRead)
-def update_availability_pool(
-    pool_id: UUID, pool: AvailabilityPoolUpdate
-) -> AvailabilityPoolRead:
-    """Update an availability pool."""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
-    )
-
 
 # =========================
 # AvailabilityPool Endpoints

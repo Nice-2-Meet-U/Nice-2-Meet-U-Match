@@ -22,24 +22,18 @@ router = APIRouter()
 # =========================
 
 
-@router.post(
-    "/match-individuals",
-    response_model=MatchIndividualRead,
-    status_code=status.HTTP_201_CREATED,
+@router.post("/match-individuals", response_model=MatchIndividualRead, status_code=status.HTTP_201_CREATED,
 )
-def create_match_individual(
-    match_individual: MatchIndividualCreate,
-) -> MatchIndividualRead:
+def create_match_individual(match_individual: MatchIndividualCreate) -> MatchIndividualRead:
     """Create a participant decision record."""
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
     )
 
 
-@router.get(
-    "/match-individuals/{person_id}/{counterparty_id}",
-    response_model=MatchIndividualRead,
-)
+
+
+@router.get("/match-individuals/{person_id}/{counterparty_id}",response_model=MatchIndividualRead)
 def get_match_individual(person_id: UUID, counterparty_id: UUID) -> MatchIndividualRead:
     """Retrieve a participant decision record."""
     raise HTTPException(
@@ -47,9 +41,7 @@ def get_match_individual(person_id: UUID, counterparty_id: UUID) -> MatchIndivid
     )
 
 
-@router.get(
-    "/match-individuals/person/{person_id}", response_model=List[MatchIndividualRead]
-)
+@router.get("/match-individuals/person/{person_id}", response_model=List[MatchIndividualRead])
 def list_match_individuals_by_person(person_id: UUID) -> List[MatchIndividualRead]:
     """List all match decisions for a specific person."""
     raise HTTPException(
