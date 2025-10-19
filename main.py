@@ -3,13 +3,30 @@ from __future__ import annotations
 from dotenv import load_dotenv
 
 load_dotenv()
+import os
+
+port = int(os.environ.get("FASTAPIPORT", 8000))
 
 import os
+import socket
+from datetime import datetime
+
+from typing import Dict
 from fastapi import FastAPI
+from uuid import UUID
+from models.availability import AvailabilityRead
+from models.availability import AvailabilityPoolRead
+from models.match import MatchRead
+from models.match import MatchIndividualRead
+
 
 # Routers
-from services.match import router as match_router
+from services import match as match_module
+from services import availability as availability_module
 
+# In-memory databases
+AvailabilityPools: Dict[UUID, AvailabilityPoolRead] = {}
+Matches : Dict[UUID, MatchRead] = {}
 # If you have a health router, uncomment the next line:
 # from services.health import router as health_router
 
@@ -27,7 +44,7 @@ app = FastAPI(
 # -------------------------------------------------------------------
 # Include Routers
 # -------------------------------------------------------------------
-app.include_router(match_router)
+app.include_router(match_module.router)
 # app.include_router(health_router)
 
 
