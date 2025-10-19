@@ -175,22 +175,8 @@ class MatchBase(BaseModel):
     }
 
 
-class MatchCreate(BaseModel):
+class MatchCreate(MatchBase):
     """Creation payload for a new match attempt (participants start pending)."""
-
-    match_id1: MatchIndividualCreate = Field(
-        ...,
-        description="Initial decision state for participant 1.",
-    )
-    match_id2: MatchIndividualCreate = Field(
-        ...,
-        description="Initial decision state for participant 2.",
-    )
-    accepted_by_both: bool = Field(
-        False,
-        description="True if both participants accepted.",
-        json_schema_extra={"example": False},
-    )
 
     model_config = {
         "json_schema_extra": {
@@ -213,7 +199,7 @@ class MatchCreate(BaseModel):
     }
 
 
-class MatchUpdate(BaseModel):
+class MatchUpdate(MatchBase):
     """Update payload for modifying an existing match's participant decisions."""
 
     match_id1: Optional[MatchIndividualUpdate] = Field(

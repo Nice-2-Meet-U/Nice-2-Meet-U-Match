@@ -8,7 +8,6 @@ from ..models.match import (
     MatchCreate,
     MatchRead,
     MatchUpdate,
-    MatchRemove,
     # MatchIndividual models
     MatchIndividualCreate,
     MatchIndividualRead,
