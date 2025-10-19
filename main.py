@@ -7,7 +7,7 @@ import os
 
 port = int(os.environ.get("FASTAPIPORT", 8000))
 
-import os
+
 import socket
 from datetime import datetime
 
@@ -45,6 +45,7 @@ app = FastAPI(
 # Include Routers
 # -------------------------------------------------------------------
 app.include_router(match_module.router)
+app.include_router(availability_module.router)
 # app.include_router(health_router)
 
 

@@ -2,12 +2,11 @@ from fastapi import APIRouter, HTTPException, status
 from uuid import UUID
 from typing import List
 
-from ..models.availability import (
+from models.availability import (
     # Availability models
     AvailabilityCreate,
     AvailabilityRead,
     AvailabilityUpdate,
-    AvailabilityRemove,
     # AvailabilityPool models
     AvailabilityPoolCreate,
     AvailabilityPoolRead,

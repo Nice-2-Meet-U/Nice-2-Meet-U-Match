@@ -3,7 +3,7 @@ from uuid import UUID
 from typing import List
 
 
-from ..models.match import (
+from models.match import (
 # Match models
     MatchCreate,
     MatchRead,
@@ -142,9 +142,3 @@ def delete_match(match_id: UUID) -> None:
     )
 
 
-@router.post("/matches/remove", response_model=MatchRemove)
-def remove_match(removal: MatchRemove) -> MatchRemove:
-    """Remove a match with timestamp tracking."""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
-    )
