@@ -16,7 +16,6 @@ from ..models.availability import (
 router = APIRouter()
 
 
-
 # =========================
 # Availability Endpoints
 # =========================
@@ -60,9 +59,8 @@ def update_availability(
     )
 
 
-@router.delete(
-    "/availabilities/{availability_id}", status_code=status.HTTP_204_NO_CONTENT
-)
+
+@router.delete("/availabilities/{availability_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_availability(availability_id: UUID) -> None:
     """Remove a person from the availability pool."""
     raise HTTPException(
@@ -70,9 +68,11 @@ def delete_availability(availability_id: UUID) -> None:
     )
 
 
-@router.post("/availabilities/remove", response_model=AvailabilityRemove)
-def remove_availability(removal: AvailabilityRemove) -> AvailabilityRemove:
-    """Remove a person from the availability pool with timestamp tracking."""
+@router.patch("/availability/{availability_id}", response_model=AvailabilityPoolRead)
+def update_availability_pool(
+    pool_id: UUID, pool: AvailabilityPoolUpdate
+) -> AvailabilityPoolRead:
+    """Update an availability pool."""
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
     )

@@ -13,7 +13,11 @@ from pydantic import BaseModel, Field
 
 class MatchIndividualBase(BaseModel):
     """Per-participant decision state within a match."""
-
+    match_individual_id: UUID = Field(
+        ...,
+        description=" ID for this match_individual",
+        json_schema_extra={"example": "22222222-2222-4222-8222-222222222222"},
+    )
     id1: UUID = Field(
         ...,
         description="Person ID for this decision holder.",
@@ -59,7 +63,7 @@ class MatchIndividualCreate(MatchIndividualBase):
     }
 
 
-class MatchIndividualUpdate(BaseModel):
+class MatchIndividualUpdate(MatchIndividualBase):
     """Partial update for a participant decision record."""
 
     accepted: Optional[bool] = Field(
@@ -112,11 +116,33 @@ class MatchIndividualRead(MatchIndividualBase):
 class MatchBase(BaseModel):
     match_id1: MatchIndividualRead = Field(
         ...,
-        description="First participant decision record.",
+        description="First participant match record.",
+        json_schema_extra= {
+            "examples": [
+                {
+                    "id1": "22222222-2222-4222-8222-222222222222",
+                    "id2": "33333333-3333-4333-8333-333333333333",
+                    "accepted": None,
+                    "created_at": "2025-06-01T10:05:00Z",
+                    "updated_at": "2025-06-01T10:10:00Z",
+                }
+            ]
+        }
     )
     match_id2: MatchIndividualRead = Field(
         ...,
-        description="Second participant decision record.",
+        description="Second participant match record.",
+        json_schema_extra={
+            "examples": [
+                {
+                    "id1": "22222222-2222-4222-8222-222222222222",
+                    "id2": "33333333-3333-4333-8333-333333333333",
+                    "accepted": None,
+                    "created_at": "2025-06-01T10:05:00Z",
+                    "updated_at": "2025-06-01T10:10:00Z",
+                }
+            ]
+        },
     )
     accepted_by_both: bool = Field(
         False,
@@ -229,31 +255,6 @@ class MatchUpdate(BaseModel):
         }
     }
 
-
-class MatchRemove(BaseModel):
-    """Removal payload—used to cancel or purge a match by ID."""
-
-    match_id: UUID = Field(
-        ...,
-        description="Match ID to remove.",
-        json_schema_extra={"example": "44444444-4444-4444-8444-444444444444"},
-    )
-    time_removed: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="When the match was removed (UTC).",
-        json_schema_extra={"example": "2025-06-01T10:30:00Z"},
-    )
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "match_id": "44444444-4444-4444-8444-444444444444",
-                    "time_removed": "2025-06-01T10:30:00Z",
-                }
-            ]
-        }
-    }
 
 
 class MatchRead(MatchBase):

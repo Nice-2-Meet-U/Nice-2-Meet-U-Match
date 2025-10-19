@@ -12,6 +12,11 @@ from pydantic import BaseModel, Field
 
 
 class AvailabilityBase(BaseModel):
+    availability_id: UUID = Field(
+        ...,
+        description="Unique identifier of the person this availability",
+        json_schema_extra={"example": "99999999-9999-4999-8999-999999999999"},
+    )
     person_id: UUID = Field(
         ...,
         description="Unique identifier of the person this availability belongs to.",
@@ -22,19 +27,14 @@ class AvailabilityBase(BaseModel):
         description="Geographical or logical location used for matching.",
         json_schema_extra={"example": "NYC"},
     )
-    time_added: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="When the person became available (UTC).",
-        json_schema_extra={"example": "2025-06-01T10:00:00Z"},
-    )
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
+                    "availability_id": "99999999-9999-4999-8999-999999999999",
                     "person_id": "99999999-9999-4999-8999-999999999999",
                     "location": "NYC",
-                    "time_added": "2025-06-01T10:00:00Z",
                 }
             ]
         }
@@ -48,9 +48,9 @@ class AvailabilityCreate(AvailabilityBase):
         "json_schema_extra": {
             "examples": [
                 {
+                    "availability_id": "99999999-9999-4999-8999-999999999999",
                     "person_id": "99999999-9999-4999-8999-999999999999",
                     "location": "SF",
-                    "time_added": "2025-07-01T09:30:00Z",
                 }
             ]
         }
@@ -66,47 +66,12 @@ class AvailabilityUpdate(AvailabilityBase):
         json_schema_extra={"example": "99999999-9999-4999-8999-999999999999"},
     )
     location: Optional[str] = Field(None, json_schema_extra={"example": "NYC"})
-    time_added: Optional[datetime] = Field(
-        None, json_schema_extra={"example": "2025-06-02T12:00:00Z"}
-    )
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {"person_id": "99999999-9999-4999-8999-999999999999", "location": "SF"},
-                {"time_added": "2025-06-02T12:00:00Z"},
-            ]
-        }
-    }
-
-
-class AvailabilityRemove(AvailabilityBase):
-    """Removal payload for taking someone out of the availability pool."""
-
-    person_id: UUID = Field(
-        ...,
-        description="Person ID to remove from the availability pool.",
-        json_schema_extra={"example": "11111111-1111-4111-8111-111111111111"},
-    )
-    id: UUID = Field(
-        default_factory=uuid4,
-        description="Internal record ID for this availability entry.",
-        json_schema_extra={"example": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"},
-    )
-    time_removed: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="When the person left the availability pool (UTC).",
-        json_schema_extra={"example": "2025-06-01T12:15:00Z"},
-    )
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "person_id": "11111111-1111-4111-8111-111111111111",
-                    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-                    "time_removed": "2025-06-01T12:15:00Z",
-                }
+                {"location": "2025-06-02T12:00:00Z"},
             ]
         }
     }
@@ -115,25 +80,26 @@ class AvailabilityRemove(AvailabilityBase):
 class AvailabilityRead(AvailabilityBase):
     """Read representation; mirrors base with server-side identifiers and timestamps."""
 
-    id: UUID = Field(
-        default_factory=uuid4,
-        description="Server-generated ID for this availability record.",
-        json_schema_extra={"example": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"},
-    )
+
     updated_at: datetime = Field(
         default_factory=datetime.utcnow,
         description="Last update timestamp (UTC).",
         json_schema_extra={"example": "2025-06-01T11:00:00Z"},
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Creation timestamp (UTC).",
+        json_schema_extra={"example": "2025-01-15T10:20:30Z"},
     )
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
-                    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                    "availabilityid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
                     "person_id": "99999999-9999-4999-8999-999999999999",
                     "location": "NYC",
-                    "time_added": "2025-06-01T10:00:00Z",
+                    "created_at": "2025-06-01T10:00:00Z",
                     "updated_at": "2025-06-01T11:00:00Z",
                 }
             ]
@@ -146,7 +112,11 @@ class AvailabilityRead(AvailabilityBase):
 # =========================
 class AvailabilityPoolBase(BaseModel):
     """Current pool of active availabilities (simple container)."""
-
+    availability_pool_id: UUID = Field(
+        ...,
+        description="Unique identifier of availability pool",
+        json_schema_extra={"example": "99999999-9999-4999-8999-999999999999"},
+    )
     location: str = Field(
         ...,
         description="Name or code of the location for this availability pool.",
@@ -225,11 +195,6 @@ class AvailabilityPoolUpdate(BaseModel):
 class AvailabilityPoolRead(AvailabilityPoolBase):
     """Read representation of an availability pool with server-side metadata."""
 
-    id: UUID = Field(
-        default_factory=uuid4,
-        description="Server-generated ID for this availability pool.",
-        json_schema_extra={"example": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"},
-    )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
         description="When this pool was created (UTC).",
@@ -245,7 +210,7 @@ class AvailabilityPoolRead(AvailabilityPoolBase):
         "json_schema_extra": {
             "examples": [
                 {
-                    "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                    "availability_pool_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
                     "location": "NYC",
                     "availabilities": [
                         {
