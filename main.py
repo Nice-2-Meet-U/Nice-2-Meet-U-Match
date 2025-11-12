@@ -33,7 +33,7 @@ Matches : Dict[UUID, MatchRead] = {}
 # -------------------------------------------------------------------
 # Config
 # -------------------------------------------------------------------
-PORT = int(os.environ.get("FASTAPIPORT", 8000))
+PORT = int(os.environ.get("PORT", 8000))
 
 app = FastAPI(
     title="Match API",
