@@ -1,6 +1,9 @@
 from fastapi import APIRouter, HTTPException, status
 from uuid import UUID
 from typing import List
+from datetime import datetime, timezone
+
+from sqlalchemy.orm import Session
 
 from models.availability import (
     # Availability models
@@ -12,7 +15,43 @@ from models.availability import (
     AvailabilityPoolRead,
     AvailabilityPoolUpdate,
 )
+from models.db import Availability, AvailabilityPool
+from services.db import connect_with_connector
+
 router = APIRouter()
+
+
+def get_db_session() -> Session:
+    """Get a database session."""
+    engine = connect_with_connector()
+    return Session(engine)
+
+
+# Helper functions
+def availability_to_read(db_availability: Availability) -> AvailabilityRead:
+    """Convert database Availability to Pydantic AvailabilityRead."""
+    return AvailabilityRead(
+        availability_id=UUID(db_availability.availability_id),
+        person_id=UUID(db_availability.person_id),
+        location=db_availability.location,
+        created_at=db_availability.created_at,
+        updated_at=db_availability.updated_at,
+    )
+
+
+def availability_pool_to_read(db_pool: AvailabilityPool, session: Session) -> AvailabilityPoolRead:
+    """Convert database AvailabilityPool to Pydantic AvailabilityPoolRead."""
+    availabilities = session.query(Availability).filter(
+        Availability.location == db_pool.location
+    ).all()
+    
+    return AvailabilityPoolRead(
+        availability_pool_id=UUID(db_pool.availability_pool_id),
+        location=db_pool.location,
+        availabilities=[availability_to_read(a) for a in availabilities],
+        created_at=db_pool.created_at,
+        updated_at=db_pool.updated_at,
+    )
 
 
 # =========================
@@ -27,9 +66,39 @@ router = APIRouter()
 )
 def create_availability(availability: AvailabilityCreate) -> AvailabilityRead:
     """Add a person to the availability pool."""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
-    )
+    session = get_db_session()
+    try:
+        db_availability = Availability(
+            availability_id=str(availability.availability_id),
+            person_id=str(availability.person_id),
+            location=availability.location,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        session.add(db_availability)
+        session.commit()
+        session.refresh(db_availability)
+        
+        # Ensure availability pool exists for this location
+        pool = session.query(AvailabilityPool).filter(
+            AvailabilityPool.location == availability.location
+        ).first()
+        if not pool:
+            pool = AvailabilityPool(
+                availability_pool_id=None,  # Will be auto-generated
+                location=availability.location,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+            )
+            session.add(pool)
+            session.commit()
+        
+        return availability_to_read(db_availability)
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    finally:
+        session.close()
 
 
 @router.get("/availabilities/{availability_id}", response_model=AvailabilityRead)
