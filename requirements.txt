@@ -25,6 +25,6 @@ mysql-connector-python==9.0.0
 python-dotenv==1.0.1
 
 # ---- Optional performance & testing ----
-orjson==3.10.3
+
 httpx==0.27.2
 pytest==8.3.3
