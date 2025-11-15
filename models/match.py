@@ -1,253 +1,135 @@
 from __future__ import annotations
 
-from typing import List, Optional
-from uuid import UUID, uuid4
 from datetime import datetime
-from pydantic import BaseModel, Field
+from enum import Enum
+from typing import Optional
+from uuid import UUID, uuid4
+
+from pydantic import BaseModel, Field, ConfigDict
+
+
+class MatchStatus(str, Enum):
+    waiting = "waiting"
+    accepted = "accepted"
+    rejected = "rejected"
 
 
 # =========================
-# MatchIndividual
-# =========================
-
-
-class MatchIndividualBase(BaseModel):
-    """Per-participant decision state within a match."""
-    match_individual_id: UUID = Field(
-        ...,
-        description=" ID for this match_individual",
-        json_schema_extra={"example": "22222222-2222-4222-8222-222222222222"},
-    )
-    id1: UUID = Field(
-        ...,
-        description="Person ID for this decision holder.",
-        json_schema_extra={"example": "22222222-2222-4222-8222-222222222222"},
-    )
-    id2: UUID = Field(
-        ...,
-        description="Counterparty person ID.",
-        json_schema_extra={"example": "33333333-3333-4333-8333-333333333333"},
-    )
-    accepted: Optional[bool] = Field(
-        None,
-        description="None = pending, True = accepted, False = rejected.",
-        json_schema_extra={"example": None},
-    )
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "id1": "22222222-2222-4222-8222-222222222222",
-                    "id2": "33333333-3333-4333-8333-333333333333",
-                    "accepted": None,
-                }
-            ]
-        }
-    }
-
-
-class MatchIndividualCreate(MatchIndividualBase):
-    """Creation payload for a participant's match state."""
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "id1": "22222222-2222-4222-8222-222222222222",
-                    "id2": "33333333-3333-4333-8333-333333333333",
-                    "accepted": None,
-                }
-            ]
-        }
-    }
-
-
-class MatchIndividualUpdate(MatchIndividualBase):
-    """Partial update for a participant decision record."""
-
-    accepted: Optional[bool] = Field(
-        None,
-        description="None = pending, True = accepted, False = rejected.",
-        json_schema_extra={"example": True},
-    )
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {"accepted": True},
-            ]
-        }
-    }
-
-
-class MatchIndividualRead(MatchIndividualBase):
-    created_at: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="When this participant decision record was created (UTC).",
-        json_schema_extra={"example": "2025-06-01T10:05:00Z"},
-    )
-    updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="When this participant decision record was last updated (UTC).",
-        json_schema_extra={"example": "2025-06-01T10:10:00Z"},
-    )
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "id1": "22222222-2222-4222-8222-222222222222",
-                    "id2": "33333333-3333-4333-8333-333333333333",
-                    "accepted": None,
-                    "created_at": "2025-06-01T10:05:00Z",
-                    "updated_at": "2025-06-01T10:10:00Z",
-                }
-            ]
-        }
-    }
-
-
-# =========================
-# Match
+# Match (Base / Post / Put / Patch / Get)
 # =========================
 
 
 class MatchBase(BaseModel):
-    match_id1: MatchIndividualRead = Field(
+    """Core fields for a pairwise match; status is server-driven."""
+
+    pool_id: UUID = Field(
         ...,
-        description="First participant match record.",
-        json_schema_extra= {
-            "examples": [
-                {
-                    "id1": "22222222-2222-4222-8222-222222222222",
-                    "id2": "33333333-3333-4333-8333-333333333333",
-                    "accepted": None,
-                    "created_at": "2025-06-01T10:05:00Z",
-                    "updated_at": "2025-06-01T10:10:00Z",
-                }
-            ]
-        }
+        description="Pool this match belongs to.",
+        json_schema_extra={"example": "11111111-1111-4111-8111-111111111111"},
     )
-    match_id2: MatchIndividualRead = Field(
+    user1_id: UUID = Field(
         ...,
-        description="Second participant match record.",
+        description="First participant user ID.",
+        json_schema_extra={"example": "22222222-2222-4222-8222-222222222222"},
+    )
+    user2_id: UUID = Field(
+        ...,
+        description="Second participant user ID.",
+        json_schema_extra={"example": "33333333-3333-4333-8333-333333333333"},
+    )
+
+    model_config = ConfigDict(
         json_schema_extra={
             "examples": [
                 {
-                    "id1": "22222222-2222-4222-8222-222222222222",
-                    "id2": "33333333-3333-4333-8333-333333333333",
-                    "accepted": None,
-                    "created_at": "2025-06-01T10:05:00Z",
-                    "updated_at": "2025-06-01T10:10:00Z",
-                }
-            ]
-        },
-    )
-    accepted_by_both: bool = Field(
-        False,
-        description="True if both participants accepted.",
-        json_schema_extra={"example": False},
-    )
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "match_id1": {
-                        "id1": "22222222-2222-4222-8222-222222222222",
-                        "id2": "33333333-3333-4333-8333-333333333333",
-                        "accepted": None,
-                        "created_at": "2025-06-01T10:05:00Z",
-                        "updated_at": "2025-06-01T10:05:00Z",
-                    },
-                    "match_id2": {
-                        "id1": "33333333-3333-4333-8333-333333333333",
-                        "id2": "22222222-2222-4222-8222-222222222222",
-                        "accepted": None,
-                        "created_at": "2025-06-01T10:05:10Z",
-                        "updated_at": "2025-06-01T10:05:10Z",
-                    },
-                    "accepted_by_both": False,
+                    "pool_id": "11111111-1111-4111-8111-111111111111",
+                    "user1_id": "22222222-2222-4222-8222-222222222222",
+                    "user2_id": "33333333-3333-4333-8333-333333333333",
                 }
             ]
         }
-    }
+    )
 
 
-class MatchCreate(MatchBase):
-    """Creation payload for a new match attempt (participants start pending)."""
+class MatchPost(MatchBase):
+    """Creation payload for a new match (server sets status='waiting')."""
 
-    model_config = {
-        "json_schema_extra": {
+    # If match IDs are server-generated, you don't send an id here.
+    model_config = ConfigDict(
+        json_schema_extra={
             "examples": [
                 {
-                    "match_id1": {
-                        "id1": "22222222-2222-4222-8222-222222222222",
-                        "id2": "33333333-3333-4333-8333-333333333333",
-                        "accepted": None,
-                    },
-                    "match_id2": {
-                        "id1": "33333333-3333-4333-8333-333333333333",
-                        "id2": "22222222-2222-4222-8222-222222222222",
-                        "accepted": None,
-                    },
-                    "accepted_by_both": False,
+                    "pool_id": "11111111-1111-4111-8111-111111111111",
+                    "user1_id": "22222222-2222-4222-8222-222222222222",
+                    "user2_id": "33333333-3333-4333-8333-333333333333",
                 }
             ]
         }
-    }
-
-
-class MatchUpdate(MatchBase):
-    """Update payload for modifying an existing match's participant decisions."""
-
-    match_id1: Optional[MatchIndividualUpdate] = Field(
-        None,
-        description="Optional updates to participant 1's decision state.",
-    )
-    match_id2: Optional[MatchIndividualUpdate] = Field(
-        None,
-        description="Optional updates to participant 2's decision state.",
-    )
-    accepted_by_both: Optional[bool] = Field(
-        None,
-        description="Override for accepted_by_both status (usually auto-calculated).",
     )
 
-    model_config = {
-        "json_schema_extra": {
+
+class MatchPut(MatchBase):
+    """Full replace (rare). Status remains server-driven."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
             "examples": [
                 {
-                    "match_id1": {
-                        "id1": "22222222-2222-4222-8222-222222222222",
-                        "id2": "33333333-3333-4333-8333-333333333333",
-                        "accepted": True,
-                        "created_at": "2025-06-01T10:05:00Z",
-                        "updated_at": "2025-06-01T10:05:00Z",
-                    },
-                },
-                {
-                    "match_id1": {
-                        "id1": "22222222-2222-4222-8222-222222222222",
-                        "id2": "33333333-3333-4333-8333-333333333333",
-                        "accepted": True,
-                        "created_at": "2025-06-01T10:05:00Z",
-                        "updated_at": "2025-06-01T10:05:00Z",
-                    },
-                    "accepted_by_both": True,
-                },
+                    "pool_id": "11111111-1111-4111-8111-111111111111",
+                    "user1_id": "22222222-2222-4222-8222-222222222222",
+                    "user2_id": "33333333-3333-4333-8333-333333333333",
+                }
             ]
         }
-    }
+    )
 
 
+class MatchPatch(BaseModel):
+    """Partial update; status is optional and typically admin-only."""
 
-class MatchRead(MatchBase):
+    pool_id: Optional[UUID] = Field(
+        None,
+        description="Change pool (rare).",
+        json_schema_extra={"example": "11111111-1111-4111-8111-111111111111"},
+    )
+    user1_id: Optional[UUID] = Field(
+        None,
+        description="Replace first participant.",
+        json_schema_extra={"example": "22222222-2222-4222-8222-222222222222"},
+    )
+    user2_id: Optional[UUID] = Field(
+        None,
+        description="Replace second participant.",
+        json_schema_extra={"example": "33333333-3333-4333-8333-333333333333"},
+    )
+    status: Optional[MatchStatus] = Field(
+        None,
+        description="Admin override of status (normally computed from decisions).",
+        json_schema_extra={"example": "accepted"},
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"status": "rejected"},
+                {"user2_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"},
+            ]
+        }
+    )
+
+
+class MatchGet(MatchBase):
+    """Server representation of a match."""
+
     match_id: UUID = Field(
         default_factory=uuid4,
-        description="Persistent Match ID (server-generated).",
+        description="Persistent match UUID (server-generated).",
         json_schema_extra={"example": "44444444-4444-4444-8444-444444444444"},
+    )
+    status: MatchStatus = Field(
+        default=MatchStatus.waiting,
+        description="Waiting until decisions resolve to accepted/rejected.",
+        json_schema_extra={"example": "waiting"},
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
@@ -256,33 +138,25 @@ class MatchRead(MatchBase):
     )
     updated_at: datetime = Field(
         default_factory=datetime.utcnow,
-        description="When the match status last changed (UTC).",
+        description="When the match last changed (UTC).",
         json_schema_extra={"example": "2025-06-01T10:20:00Z"},
     )
+    # Optional: include rollup if you expose it
+    # accepted_by_both: bool = Field(False, description="True if both accepted.")
 
-    model_config = {
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "examples": [
                 {
                     "match_id": "44444444-4444-4444-8444-444444444444",
-                    "match_id1": {
-                        "id1": "22222222-2222-4222-8222-222222222222",
-                        "id2": "33333333-3333-4333-8333-333333333333",
-                        "accepted": True,
-                        "created_at": "2025-06-01T10:05:00Z",
-                        "updated_at": "2025-06-01T10:10:00Z",
-                    },
-                    "match_id2": {
-                        "id1": "33333333-3333-4333-8333-333333333333",
-                        "id2": "22222222-2222-4222-8222-222222222222",
-                        "accepted": True,
-                        "created_at": "2025-06-01T10:06:00Z",
-                        "updated_at": "2025-06-01T10:11:00Z",
-                    },
-                    "accepted_by_both": True,
+                    "pool_id": "11111111-1111-4111-8111-111111111111",
+                    "user1_id": "22222222-2222-4222-8222-222222222222",
+                    "user2_id": "33333333-3333-4333-8333-333333333333",
+                    "status": "waiting",
                     "created_at": "2025-06-01T10:05:00Z",
                     "updated_at": "2025-06-01T10:20:00Z",
                 }
             ]
-        }
-    }
+        },
+    )

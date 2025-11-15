@@ -19,7 +19,10 @@ idna==3.10
 dnspython==2.7.0
 
 # ---- Database ----
+sqlalchemy==2.0.31
 mysql-connector-python==9.0.0
+google-cloud-sql-python-connector==1.18.5
+google-auth==2.31.0
 
 # ---- Environment & Config ----
 python-dotenv==1.0.1

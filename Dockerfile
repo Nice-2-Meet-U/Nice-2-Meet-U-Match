@@ -36,7 +36,7 @@ COPY --from=builder /app/.venv /app/.venv
 COPY . .
 
 # Expose port
-EXPOSE 8000
+EXPOSE 8080
 
-# Run the application
-CMD ["uv", "run", "main.py"]
+# Run the application. Use $PORT (Cloud Run sets this) with a shell so the env var expands.
+CMD ["sh", "-c", "uv run uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]

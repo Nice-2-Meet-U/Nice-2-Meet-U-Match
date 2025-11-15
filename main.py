@@ -1,68 +1,83 @@
 from __future__ import annotations
 
-import os
-from typing import Dict
-from uuid import UUID
-
-from dotenv import load_dotenv
+import logging
 from fastapi import FastAPI
-
-from models.availability import AvailabilityPoolRead
-from models.match import MatchRead
+from fastapi.middleware.cors import CORSMiddleware
 
 # Routers
-from services import match as match_module
-from services import availability as availability_module
-from services.db import initialize_schema
+from resources import matches, decisions, pools
 
-load_dotenv()
+from frameworks.db.session import engine, Base
 
-# In-memory databases
-AvailabilityPools: Dict[UUID, AvailabilityPoolRead] = {}
-Matches: Dict[UUID, MatchRead] = {}
-
-# -------------------------------------------------------------------
-# Config
-# -------------------------------------------------------------------
-PORT = int(os.environ.get("PORT", 8000))
+# ------------------------------------------------------------------------------
+# App initialization
+# ------------------------------------------------------------------------------
 
 app = FastAPI(
-    title="Match API",
-    description="Demo FastAPI app using Pydantic v2 models for Matching/Availability",
-    version="0.1.0",
+    title="Matches Microservice",
+    version="1.0.0",
+    description=(
+        "A microservice for handling match pools, pairwise matches, and "
+        "user decisions (accept/reject) between participants."
+    ),
 )
 
+# ------------------------------------------------------------------------------
+# Middleware
+# ------------------------------------------------------------------------------
 
-# Initialize database schema on startup
+# Adjust allowed origins for your environment
+origins = [
+    "http://localhost",
+    "http://localhost:3000",
+    "http://127.0.0.1:8000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ------------------------------------------------------------------------------
+# Routes
+# ------------------------------------------------------------------------------
+
+# Group by resource type
+app.include_router(pools.router, prefix="/pools", tags=["pools"])
+app.include_router(matches.router, prefix="/matches", tags=["matches"])
+app.include_router(decisions.router, prefix="/decisions", tags=["decisions"])
+
+# ------------------------------------------------------------------------------
+# Lifespan events (startup/shutdown)
+# ------------------------------------------------------------------------------
+
+
 @app.on_event("startup")
-def startup_event():
-    """Initialize database schema on application startup."""
+def on_startup():
+    """
+    Initialize resources when the service starts.
+    For dev: optionally auto-create tables if you’re not running Alembic.
+    """
     try:
-        initialize_schema()
+        Base.metadata.create_all(bind=engine)
+        logging.info("✅ Database tables ensured.")
     except Exception as e:
-        print(f"Warning: Could not initialize schema: {e}")
+        logging.error(f"⚠️ Could not initialize database tables: {e}")
 
 
-# -------------------------------------------------------------------
-# Include Routers
-# -------------------------------------------------------------------
-app.include_router(match_module.router)
-app.include_router(availability_module.router)
+@app.on_event("shutdown")
+def on_shutdown():
+    logging.info("🛑 Matches service shutting down.")
 
 
-# -------------------------------------------------------------------
-# Root
-# -------------------------------------------------------------------
-@app.get("/")
+# ------------------------------------------------------------------------------
+# Healthcheck
+# ------------------------------------------------------------------------------
+
+
+@app.get("/", tags=["health"])
 def root():
-    return {"message": "Welcome to the Match API. See /docs for OpenAPI UI."}
-
-
-# -------------------------------------------------------------------
-# Entrypoint for `python main.py`
-# -------------------------------------------------------------------
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run("main:app", host="0.0.0.0", port=PORT, reload=True)
-
+    return {"status": "ok", "service": "matches", "version": "1.0.0"}
