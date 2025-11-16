@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -13,6 +14,23 @@ from frameworks.db.session import engine, Base
 # App initialization
 # ------------------------------------------------------------------------------
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for startup and shutdown.
+    """
+    # Startup
+    try:
+        Base.metadata.create_all(bind=engine)
+        logging.info("✅ Database tables ensured.")
+    except Exception as e:
+        logging.error(f"⚠️ Could not initialize database tables: {e}")
+    
+    yield
+    
+    # Shutdown
+    logging.info("🛑 Matches service shutting down.")
+
 app = FastAPI(
     title="Matches Microservice",
     version="1.0.0",
@@ -20,25 +38,7 @@ app = FastAPI(
         "A microservice for handling match pools, pairwise matches, and "
         "user decisions (accept/reject) between participants."
     ),
-)
-
-# ------------------------------------------------------------------------------
-# Middleware
-# ------------------------------------------------------------------------------
-
-# Adjust allowed origins for your environment
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-    "http://127.0.0.1:8000",
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    lifespan=lifespan,
 )
 
 # ------------------------------------------------------------------------------
@@ -49,29 +49,6 @@ app.add_middleware(
 app.include_router(pools.router, prefix="/pools", tags=["pools"])
 app.include_router(matches.router, prefix="/matches", tags=["matches"])
 app.include_router(decisions.router, prefix="/decisions", tags=["decisions"])
-
-# ------------------------------------------------------------------------------
-# Lifespan events (startup/shutdown)
-# ------------------------------------------------------------------------------
-
-
-@app.on_event("startup")
-def on_startup():
-    """
-    Initialize resources when the service starts.
-    For dev: optionally auto-create tables if you’re not running Alembic.
-    """
-    try:
-        Base.metadata.create_all(bind=engine)
-        logging.info("✅ Database tables ensured.")
-    except Exception as e:
-        logging.error(f"⚠️ Could not initialize database tables: {e}")
-
-
-@app.on_event("shutdown")
-def on_shutdown():
-    logging.info("🛑 Matches service shutting down.")
-
 
 # ------------------------------------------------------------------------------
 # Healthcheck
