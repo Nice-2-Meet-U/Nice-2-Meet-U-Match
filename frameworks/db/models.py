@@ -8,7 +8,7 @@ from sqlalchemy import (
     func,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.mysql import CHAR
+from sqlalchemy.dialects.mysql import CHAR, ENUM as MySQLEnum
 from sqlalchemy.orm import relationship
 import enum
 from uuid import uuid4
@@ -30,10 +30,9 @@ class DecisionValue(str, enum.Enum):
 # --- TABLES ---
 class Pool(Base):
     __tablename__ = "pools"
-
     id = Column(CHAR(36), primary_key=True, default=lambda: str(uuid4()), index=True)
-    name = Column(String(255), nullable=False)  # ← FIXED
-    location = Column(String(255))  # ← FIXED
+    name = Column(String(255), nullable=False)
+    location = Column(String(255), nullable=True)
     member_count = Column(Integer, nullable=False, default=0)
     created_at = Column(TIMESTAMP, server_default=func.now())
 
@@ -45,7 +44,6 @@ class Pool(Base):
 
 class PoolMember(Base):
     __tablename__ = "pool_members"
-
     pool_id = Column(
         CHAR(36), ForeignKey("pools.id", ondelete="CASCADE"), primary_key=True
     )
@@ -57,14 +55,17 @@ class PoolMember(Base):
 
 class Match(Base):
     __tablename__ = "matches"
-
     id = Column(CHAR(36), primary_key=True, default=lambda: str(uuid4()), index=True)
     pool_id = Column(
         CHAR(36), ForeignKey("pools.id", ondelete="CASCADE"), nullable=False
     )
     user1_id = Column(CHAR(36), nullable=False)
     user2_id = Column(CHAR(36), nullable=False)
-    status = Column(Enum(MatchStatus), nullable=False, default=MatchStatus.waiting)
+    status = Column(
+        String(20),  # Changed from Enum to String with length
+        nullable=False,
+        default=MatchStatus.waiting.value,
+    )
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
@@ -80,12 +81,13 @@ class Match(Base):
 
 class MatchDecision(Base):
     __tablename__ = "match_decisions"
-
     match_id = Column(
         CHAR(36), ForeignKey("matches.id", ondelete="CASCADE"), primary_key=True
     )
     user_id = Column(CHAR(36), primary_key=True)
-    decision = Column(Enum(DecisionValue), nullable=False)
+    decision = Column(
+        String(10), nullable=False  # Changed from Enum to String with length
+    )
     decided_at = Column(TIMESTAMP, server_default=func.now())
 
     match = relationship("Match", back_populates="decisions")
