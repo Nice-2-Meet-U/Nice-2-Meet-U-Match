@@ -63,6 +63,12 @@ def create_match(
     return match
 
 
+def get_match(db: Session, match_id: UUID):
+    """Get a single match by ID."""
+    match = db.get(models.Match, str(match_id))
+    return match
+
+
 def list_matches(
     db: Session,
     *,
