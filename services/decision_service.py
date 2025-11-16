@@ -62,6 +62,16 @@ def submit_decision(
     db.execute(status_sql, {"mid": str(match_id)})
     db.commit()
 
-    # Return updated state
-    db.refresh(match)
-    return match
+def list_decisions(
+    db: Session,
+    *,
+    match_id: UUID | None = None,
+    user_id: UUID | None = None,
+):
+    """List decisions with optional filters."""
+    q = db.query(models.MatchDecision)
+    if match_id:
+        q = q.filter(models.MatchDecision.match_id == str(match_id))
+    if user_id:
+        q = q.filter(models.MatchDecision.user_id == str(user_id))
+    return q.order_by(models.MatchDecision.decided_at.desc()).all()

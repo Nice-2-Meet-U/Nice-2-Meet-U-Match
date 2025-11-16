@@ -17,17 +17,22 @@ def create_match(
     """
     Create a new match (status starts as 'waiting').
     - Ensures user1 != user2
-    - Optional: ensure both are members of the pool (if you have PoolMember w/ UUIDs)
-    - Enforces uniqueness of pair per pool if you added a unique index (u_low/u_high) at the DB level.
+    - Normalizes user order: user1_id < user2_id
+    - Ensures both are members of the pool
+    - Enforces uniqueness of pair per pool.
     """
     if user1_id == user2_id:
         raise ValueError("Cannot create a match with the same user on both sides")
 
-    # (Optional) membership check; uncomment if PoolMember uses UUIDs
-    # for uid in (user1_id, user2_id):
-    #     exists = db.query(models.PoolMember).get((pool_id, uid))
-    #     if not exists:
-    #         raise ValueError(f"User {uid} is not a member of pool {pool_id}")
+    # Normalize order: smaller UUID first
+    if str(user1_id) > str(user2_id):
+        user1_id, user2_id = user2_id, user1_id
+
+    # Check membership
+    for uid in (user1_id, user2_id):
+        exists = db.query(models.PoolMember).get((str(pool_id), str(uid)))
+        if not exists:
+            raise ValueError(f"User {uid} is not a member of pool {pool_id}")
 
     match = models.Match(
         pool_id=str(pool_id),
@@ -40,22 +45,13 @@ def create_match(
         db.commit()
     except IntegrityError as e:
         db.rollback()
-        # If you have a unique constraint (pool_id, u_low, u_high) waiting-only,
-        # you can choose to fetch and return the existing row to make it idempotent:
+        # If unique constraint fails, check if there's an existing match for this pair
         existing = (
             db.query(models.Match)
             .filter(
                 models.Match.pool_id == str(pool_id),
-                # If you added u_low/u_high generated columns, use them here
-                # Otherwise, just look for any active 'waiting' pair in either order:
-                (
-                    (models.Match.user1_id == str(user1_id))
-                    & (models.Match.user2_id == str(user2_id))
-                )
-                | (
-                    (models.Match.user1_id == str(user2_id))
-                    & (models.Match.user2_id == str(user1_id))
-                ),
+                models.Match.user1_id == str(user1_id),
+                models.Match.user2_id == str(user2_id),
                 models.Match.status == models.MatchStatus.waiting,
             )
             .first()
@@ -67,6 +63,56 @@ def create_match(
     return match
 
 
-def get_match(db: Session, match_id: UUID):
-    m = db.get(models.Match, str(match_id))
-    return m
+def list_matches(
+    db: Session,
+    *,
+    pool_id: UUID | None = None,
+    user_id: UUID | None = None,
+    status_filter: str | None = None,
+):
+    """List matches with optional filters."""
+    q = db.query(models.Match)
+    if pool_id:
+        q = q.filter(models.Match.pool_id == str(pool_id))
+    if user_id:
+        q = q.filter(
+            (models.Match.user1_id == str(user_id)) | (models.Match.user2_id == str(user_id))
+        )
+    if status_filter:
+        q = q.filter(models.Match.status == status_filter)
+    return q.order_by(models.Match.created_at.desc()).all()
+
+
+def patch_match(
+    db: Session,
+    *,
+    match_id: UUID,
+    pool_id: UUID | None = None,
+    user1_id: UUID | None = None,
+    user2_id: UUID | None = None,
+    status: str | None = None,
+):
+    """Partial update of a match."""
+    match = db.get(models.Match, str(match_id))
+    if not match:
+        raise ValueError("Match not found")
+
+    changed = False
+    if pool_id is not None:
+        match.pool_id = str(pool_id)
+        changed = True
+    if user1_id is not None:
+        match.user1_id = str(user1_id)
+        changed = True
+    if user2_id is not None:
+        match.user2_id = str(user2_id)
+        changed = True
+    if status is not None:
+        match.status = status
+        changed = True
+
+    if changed:
+        db.add(match)
+        db.commit()
+        db.refresh(match)
+    return match

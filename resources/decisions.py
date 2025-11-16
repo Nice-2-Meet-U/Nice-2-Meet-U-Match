@@ -7,7 +7,7 @@ from typing import Optional
 from uuid import UUID
 
 from frameworks.db.session import get_db
-from services.decision_service import submit_decision
+from services.decision_service import submit_decision, list_decisions
 from models.decisions import DecisionPost, DecisionGet
 from frameworks.db import models
 
@@ -23,7 +23,7 @@ def submit_decision_endpoint(payload: DecisionPost, db: Session = Depends(get_db
             db,
             match_id=payload.match_id,
             user_id=payload.user_id,
-            decision=models.DecisionValue(payload.decision.value),
+            decision=payload.decision,  # Already DecisionValue enum
         )
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
@@ -45,9 +45,5 @@ def list_decisions_endpoint(
     user_id: Optional[UUID] = Query(None),
     db: Session = Depends(get_db),
 ):
-    q = db.query(models.MatchDecision)
-    if match_id:
-        q = q.filter(models.MatchDecision.match_id == str(match_id))
-    if user_id:
-        q = q.filter(models.MatchDecision.user_id == str(user_id))
-    return q.order_by(models.MatchDecision.decided_at.desc()).all()
+    decisions = list_decisions(db, match_id=match_id, user_id=user_id)
+    return decisions
