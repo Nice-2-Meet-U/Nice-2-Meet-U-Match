@@ -52,7 +52,7 @@ def list_decisions_endpoint(
     return decisions
 
 
-@router.post("/user/{user_id}/add-to-pool", status_code=status.HTTP_201_CREATED)
+@router.post("/users/{user_id}/add-to-pool", status_code=status.HTTP_201_CREATED)
 def add_user_to_pool(user_id: UUID, location: str, db: Session = Depends(get_db)):
     """
     Add a user to a pool by location. Creates a new pool if none exists for the location,
@@ -87,7 +87,7 @@ def add_user_to_pool(user_id: UUID, location: str, db: Session = Depends(get_db)
         raise HTTPException(status_code=500, detail=f"Failed to add user to pool: {str(e)}")
 
 
-@router.post("/user/{user_id}/generate-matches", status_code=status.HTTP_201_CREATED)
+@router.post("/users/{user_id}/generate-matches", status_code=status.HTTP_201_CREATED)
 def generate_matches_for_user(user_id: UUID, db: Session = Depends(get_db)):
     """
     Find the user's pool and generate up to 10 random matches with other pool members.

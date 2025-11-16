@@ -49,7 +49,7 @@ app = FastAPI(
 app.include_router(pools.router, prefix="/pools", tags=["pools"])
 app.include_router(matches.router, prefix="/matches", tags=["matches"])
 app.include_router(decisions.router, prefix="/decisions", tags=["decisions"])
-
+app.include_router(decisions.router, prefix="/users", tags=["users"])
 # ------------------------------------------------------------------------------
 # Healthcheck
 # ------------------------------------------------------------------------------
