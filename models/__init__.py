@@ -17,6 +17,17 @@ from .decisions import (
     DecisionGet,
     DecisionValue,
 )
+from .composite import (
+    PoolOperationInfo,
+    MemberOperationInfo,
+    MatchCandidateInfo,
+    MatchOperationInfo,
+    CompositeOperationResponse,
+    BasicPoolOperationInfo,
+    BasicMatchOperationInfo,
+    BasicCompositeResponse,
+    SimpleAddToPoolResponse,
+)
 
 __all__ = [
     # pool
@@ -42,4 +53,14 @@ __all__ = [
     "DecisionPatch",
     "DecisionGet",
     "DecisionValue",
+    # composite
+    "PoolOperationInfo",
+    "MemberOperationInfo",
+    "MatchCandidateInfo",
+    "MatchOperationInfo",
+    "CompositeOperationResponse",
+    "BasicPoolOperationInfo",
+    "BasicMatchOperationInfo",
+    "BasicCompositeResponse",
+    "SimpleAddToPoolResponse",
 ]

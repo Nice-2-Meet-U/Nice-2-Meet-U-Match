@@ -118,3 +118,48 @@ Full OpenAPI documentation is available at the `/docs` endpoint when running the
 ## Status
 
 This is a demo implementation (v0.1.0) with endpoints defined but not yet implemented. All endpoints currently return a 501 Not Implemented status.
+
+```mermaid
+flowchart TD
+    %% Nodes
+    U1[user1]
+    U2[user2]
+    POOLS[Pools]
+    PM[Pool_members`
+    ADD[add_to_pool]
+    GEN[generate_matches]
+    MD1[match_decision]
+    MATCHES[matches]
+
+    %% Flows
+    U1 -->|1| ADD
+    ADD -->|create pool if not exists| POOLS
+    ADD -->|add instance| PM
+    PM -->|update members count| POOLS
+    PM -->|assuming user2 already in the pool| U2
+    GEN -->|add 10 matches instances| MATCHES
+    MATCHES -->|if both decided, update matches| MD1
+
+    U1 -->|2| GEN
+    GEN -->|filter users on the same pool and choose 10 candidates| PM
+    GEN -->|add 10 matches instances| MATCHES
+    U2 -->|3| MD1
+    MD1 -->|check if the other user also sent decision| MATCHES
+    MATCHES -->|if both decided, update matches| MD1
+    U1 -->|3| MD1
+
+    %% Styling
+    classDef user fill:#f8e68f,stroke:#cfae00;
+    classDef pool fill:#f88c8c,stroke:#c20000;
+    classDef member fill:#f2c97d,stroke:#b37b00;
+    classDef logic fill:#fff2cc,stroke:#d6b656;
+    classDef match fill:#d7ccc8,stroke:#795548;
+    classDef decision fill:#cfe2f3,stroke:#6c8ebf;
+
+    class U1,U2 user;
+    class POOLS pool;
+    class PM member;
+    class ADD,GEN logic;
+    class MATCHES match;
+    class MD1 decision;
+  ```
