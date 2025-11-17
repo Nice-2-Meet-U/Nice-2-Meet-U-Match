@@ -6,8 +6,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy necessary files for user service (orchestrator)
+# Copy frameworks (db models, session, hateoas)
 COPY frameworks/ ./frameworks/
+
+# Copy user service files (orchestrator)
 COPY user/ ./user/
 COPY user_main.py .
 

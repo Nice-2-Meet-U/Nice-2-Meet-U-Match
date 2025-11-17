@@ -6,8 +6,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy only necessary files for pool service
+# Copy frameworks (db models, session, hateoas)
 COPY frameworks/ ./frameworks/
+
+# Copy pool service files
 COPY pool/ ./pool/
 COPY pool_main.py .
 

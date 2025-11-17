@@ -12,7 +12,8 @@ echo "🚀 Building and deploying 4 microservices..."
 
 # Build and deploy Pool Service
 echo "📦 Building pool-service..."
-gcloud builds submit --tag gcr.io/${PROJECT_ID}/pool-service --file Dockerfile.pool --project=${PROJECT_ID}
+docker build -t gcr.io/${PROJECT_ID}/pool-service -f Dockerfile.pool .
+docker push gcr.io/${PROJECT_ID}/pool-service
 
 echo "🚀 Deploying pool-service..."
 gcloud run deploy pool-service \
@@ -29,7 +30,8 @@ echo "✅ Pool service deployed: ${POOL_URL}"
 
 # Build and deploy Match Service
 echo "📦 Building match-service..."
-gcloud builds submit --tag gcr.io/${PROJECT_ID}/match-service --file Dockerfile.match --project=${PROJECT_ID}
+docker build -t gcr.io/${PROJECT_ID}/match-service -f Dockerfile.match .
+docker push gcr.io/${PROJECT_ID}/match-service
 
 echo "🚀 Deploying match-service..."
 gcloud run deploy match-service \
@@ -46,7 +48,8 @@ echo "✅ Match service deployed: ${MATCH_URL}"
 
 # Build and deploy Decision Service
 echo "📦 Building decision-service..."
-gcloud builds submit --tag gcr.io/${PROJECT_ID}/decision-service --file Dockerfile.decision --project=${PROJECT_ID}
+docker build -t gcr.io/${PROJECT_ID}/decision-service -f Dockerfile.decision .
+docker push gcr.io/${PROJECT_ID}/decision-service
 
 echo "🚀 Deploying decision-service..."
 gcloud run deploy decision-service \
@@ -63,7 +66,8 @@ echo "✅ Decision service deployed: ${DECISION_URL}"
 
 # Build and deploy User Service (Orchestrator) - NO DATABASE CONNECTION
 echo "📦 Building user-service..."
-gcloud builds submit --tag gcr.io/${PROJECT_ID}/user-service --file Dockerfile.user --project=${PROJECT_ID}
+docker build -t gcr.io/${PROJECT_ID}/user-service -f Dockerfile.user .
+docker push gcr.io/${PROJECT_ID}/user-service
 
 echo "🚀 Deploying user-service..."
 gcloud run deploy user-service \

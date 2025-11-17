@@ -6,8 +6,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy only necessary files for match service
+# Copy frameworks (db models, session, hateoas)
 COPY frameworks/ ./frameworks/
+
+# Copy match service files
 COPY match/ ./match/
 COPY match_main.py .
 
