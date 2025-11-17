@@ -3,10 +3,12 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 # Routers
-from resources import matches, decisions, pools
+from pool import pool_resources
+from match import match_resources
+from decision import decision_resources
+from user import user_resources
 
 from frameworks.db.session import engine, Base
 
@@ -46,10 +48,10 @@ app = FastAPI(
 # ------------------------------------------------------------------------------
 
 # Group by resource type
-app.include_router(pools.router, prefix="/pools", tags=["pools"])
-app.include_router(matches.router, prefix="/matches", tags=["matches"])
-app.include_router(decisions.router, prefix="/decisions", tags=["decisions"])
-app.include_router(decisions.router, prefix="/users", tags=["users"])
+app.include_router(pool_resources.router, prefix="/pools", tags=["pools"])
+app.include_router(match_resources.router, prefix="/matches", tags=["matches"])
+app.include_router(decision_resources.router, prefix="/decisions", tags=["decisions"])
+app.include_router(user_resources.router, prefix="/users", tags=["users"])
 # ------------------------------------------------------------------------------
 # Healthcheck
 # ------------------------------------------------------------------------------

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, Dict
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict
+from frameworks.hateoas import Link
 
 
 class DecisionValue(str, Enum):
@@ -102,6 +103,7 @@ class DecisionGet(DecisionBase):
         description="When the decision was recorded (UTC).",
         json_schema_extra={"example": "2025-06-01T10:10:00Z"},
     )
+    links: Dict[str, Link] = Field(default_factory=dict, alias="_links", description="HATEOAS links")
 
     model_config = ConfigDict(
         from_attributes=True,

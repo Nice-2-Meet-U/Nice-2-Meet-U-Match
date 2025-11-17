@@ -1,10 +1,24 @@
-# services/match_service.py
+"""Match service layer - business logic for match operations."""
 from __future__ import annotations
 
 from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from frameworks.db import models
+from match.match_exceptions import (
+    MatchNotFoundError,
+    InvalidMatchError,
+    DuplicateMatchError,
+    UserNotInPoolError,
+)
+
+
+def _get_match_or_raise(db: Session, match_id: UUID) -> models.Match:
+    """Helper to get match or raise MatchNotFoundError."""
+    match = db.get(models.Match, str(match_id))
+    if not match:
+        raise MatchNotFoundError(match_id)
+    return match
 
 
 def create_match(
@@ -14,59 +28,36 @@ def create_match(
     user1_id: UUID,
     user2_id: UUID,
 ):
-    """
-    Create a new match (status starts as 'waiting').
-    - Ensures user1 != user2
-    - Normalizes user order: user1_id < user2_id
-    - Ensures both are members of the pool
-    - Enforces uniqueness of pair per pool.
-    """
+    """Create a new match (status starts as 'waiting')."""
     if user1_id == user2_id:
-        raise ValueError("Cannot create a match with the same user on both sides")
+        raise InvalidMatchError("Cannot create a match with the same user on both sides")
 
-    # Normalize order: smaller UUID first
     if str(user1_id) > str(user2_id):
         user1_id, user2_id = user2_id, user1_id
 
-    # Check membership
     for uid in (user1_id, user2_id):
-        exists = db.query(models.PoolMember).get((str(pool_id), str(uid)))
+        exists = db.get(models.PoolMember, (str(pool_id), str(uid)))
         if not exists:
-            raise ValueError(f"User {uid} is not a member of pool {pool_id}")
+            raise UserNotInPoolError(uid, pool_id)
 
     match = models.Match(
         pool_id=str(pool_id),
         user1_id=str(user1_id),
         user2_id=str(user2_id),
-        # status defaults to 'waiting' via model default
     )
     db.add(match)
     try:
         db.commit()
-    except IntegrityError as e:
+    except IntegrityError:
         db.rollback()
-        # If unique constraint fails, check if there's an existing match for this pair
-        existing = (
-            db.query(models.Match)
-            .filter(
-                models.Match.pool_id == str(pool_id),
-                models.Match.user1_id == str(user1_id),
-                models.Match.user2_id == str(user2_id),
-                models.Match.status == models.MatchStatus.waiting,
-            )
-            .first()
-        )
-        if existing:
-            return existing
-        raise e
+        raise DuplicateMatchError(pool_id, user1_id, user2_id)
     db.refresh(match)
     return match
 
 
 def get_match(db: Session, match_id: UUID):
     """Get a single match by ID."""
-    match = db.get(models.Match, str(match_id))
-    return match
+    return _get_match_or_raise(db, match_id)
 
 
 def list_matches(
@@ -99,26 +90,17 @@ def patch_match(
     status: str | None = None,
 ):
     """Partial update of a match."""
-    match = db.get(models.Match, str(match_id))
-    if not match:
-        raise ValueError("Match not found")
+    match = _get_match_or_raise(db, match_id)
 
-    changed = False
     if pool_id is not None:
         match.pool_id = str(pool_id)
-        changed = True
     if user1_id is not None:
         match.user1_id = str(user1_id)
-        changed = True
     if user2_id is not None:
         match.user2_id = str(user2_id)
-        changed = True
     if status is not None:
         match.status = status
-        changed = True
 
-    if changed:
-        db.add(match)
-        db.commit()
-        db.refresh(match)
+    db.commit()
+    db.refresh(match)
     return match

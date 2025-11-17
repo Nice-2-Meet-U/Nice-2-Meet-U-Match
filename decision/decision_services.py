@@ -1,10 +1,14 @@
-# services/decision_service.py
+"""Decision service layer - business logic for decision operations."""
 from __future__ import annotations
 
 from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from frameworks.db import models
+from decision.decision_exceptions import (
+    MatchNotFoundError,
+    UnauthorizedDecisionError,
+)
 
 
 def submit_decision(
@@ -12,21 +16,15 @@ def submit_decision(
     *,
     match_id: UUID,
     user_id: UUID,
-    decision: models.DecisionValue,  # Enum on your ORM
+    decision: models.DecisionValue,
 ):
-    """
-    Upsert a decision (match_id, user_id) and atomically recompute match.status.
-    Returns the updated Match row.
-    """
-    # Ensure the decider is a participant (cheap guard; DB trigger would be stronger)
+    """Upsert a decision and atomically recompute match status."""
     match = db.get(models.Match, str(match_id))
     if not match:
-        raise ValueError("Match not found")
+        raise MatchNotFoundError(match_id)
     if str(user_id) not in (match.user1_id, match.user2_id):
-        raise PermissionError("User is not a participant in this match")
+        raise UnauthorizedDecisionError(user_id, match_id)
 
-    # MySQL-compatible upsert and status update
-    # First, upsert the decision
     upsert_sql = text(
         """
         INSERT INTO match_decisions (match_id, user_id, decision, decided_at)
@@ -40,7 +38,6 @@ def submit_decision(
         upsert_sql, {"mid": str(match_id), "uid": str(user_id), "decision": decision.value}
     )
     
-    # Then, compute and update match status
     status_sql = text(
         """
         UPDATE matches m

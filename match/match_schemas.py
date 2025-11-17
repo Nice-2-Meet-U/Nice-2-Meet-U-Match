@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, Dict
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, ConfigDict
+from frameworks.hateoas import Link
 
 
 class MatchStatus(str, Enum):
@@ -124,6 +125,7 @@ class MatchGet(MatchBase):
     match_id: UUID = Field(
         default_factory=uuid4,
         description="Persistent match UUID (server-generated).",
+        alias="id",
         json_schema_extra={"example": "44444444-4444-4444-8444-444444444444"},
     )
     status: MatchStatus = Field(
@@ -141,15 +143,15 @@ class MatchGet(MatchBase):
         description="When the match last changed (UTC).",
         json_schema_extra={"example": "2025-06-01T10:20:00Z"},
     )
-    # Optional: include rollup if you expose it
-    # accepted_by_both: bool = Field(False, description="True if both accepted.")
+    links: Dict[str, Link] = Field(default_factory=dict, alias="_links", description="HATEOAS links")
 
     model_config = ConfigDict(
         from_attributes=True,
+        populate_by_name=True,
         json_schema_extra={
             "examples": [
                 {
-                    "match_id": "44444444-4444-4444-8444-444444444444",
+                    "id": "44444444-4444-4444-8444-444444444444",
                     "pool_id": "11111111-1111-4111-8111-111111111111",
                     "user1_id": "22222222-2222-4222-8222-222222222222",
                     "user2_id": "33333333-3333-4333-8333-333333333333",
