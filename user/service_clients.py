@@ -59,7 +59,8 @@ class PoolServiceClient(HATEOASClient):
     """Client for Pool microservice using HATEOAS."""
     
     def __init__(self):
-        base_url = os.getenv("POOL_SERVICE_URL", "http://localhost:8000")
+        # Use POOL_SERVICE_URL if set, otherwise fall back to SERVICE_BASE_URL
+        base_url = os.getenv("POOL_SERVICE_URL") or os.getenv("SERVICE_BASE_URL", "http://localhost:8000")
         super().__init__(base_url)
     
     def list_pools(self, location: Optional[str] = None, skip: int = 0, limit: int = 100) -> list[Dict[str, Any]]:
@@ -115,7 +116,8 @@ class MatchServiceClient(HATEOASClient):
     """Client for Match microservice using HATEOAS."""
     
     def __init__(self):
-        base_url = os.getenv("MATCH_SERVICE_URL", "http://localhost:8000")
+        # Use MATCH_SERVICE_URL if set, otherwise fall back to SERVICE_BASE_URL
+        base_url = os.getenv("MATCH_SERVICE_URL") or os.getenv("SERVICE_BASE_URL", "http://localhost:8000")
         super().__init__(base_url)
     
     def create_match(self, pool_id: UUID, user1_id: UUID, user2_id: UUID) -> Dict[str, Any]:
@@ -136,7 +138,8 @@ class DecisionServiceClient(HATEOASClient):
     """Client for Decision microservice using HATEOAS."""
     
     def __init__(self):
-        base_url = os.getenv("DECISION_SERVICE_URL", "http://localhost:8000")
+        # Use DECISION_SERVICE_URL if set, otherwise fall back to SERVICE_BASE_URL
+        base_url = os.getenv("DECISION_SERVICE_URL") or os.getenv("SERVICE_BASE_URL", "http://localhost:8000")
         super().__init__(base_url)
     
     def get_decisions_for_match(self, match_data: Dict[str, Any]) -> list[Dict[str, Any]]:
