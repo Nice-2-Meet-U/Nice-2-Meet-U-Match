@@ -13,6 +13,7 @@ from services.user_match_service import (
     get_user_decisions_from_service,
     delete_user_from_pool_service,
     update_user_pool_coordinates_service,
+    submit_decision_for_user_match,
 )
 from models.user_match import (
     UserPoolPost,
@@ -24,6 +25,7 @@ from models.user_match import (
     UserDecisionsResponse,
     UserPoolDeleteResponse,
     UserPoolCoordinatesPatch,
+    UserDecisionPost,
 )
 
 router = APIRouter()
@@ -128,7 +130,7 @@ def get_user_matches(user_id: UUID):
         )
 
 
-@router.get("/{user_id}/pool-members", response_model=UserPoolMembersResponse)
+@router.get("/{user_id}/pool/members", response_model=UserPoolMembersResponse)
 def get_user_pool_members(user_id: UUID):
     """
     Get all users in the same pool as the specified user.
@@ -227,4 +229,37 @@ def update_user_pool_coordinates(user_id: UUID, payload: UserPoolCoordinatesPatc
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to update user coordinates: {str(e)}"
+        )
+
+
+@router.post(
+    "/{user_id}/matches/{match_id}/decisions",
+    response_model=dict,
+    status_code=status.HTTP_201_CREATED,
+)
+def submit_user_match_decision(
+    user_id: UUID, match_id: UUID, payload: UserDecisionPost
+):
+    """
+    Submit a decision (accept/reject) for a match on behalf of a user.
+    Calls the POST /matches/{match_id}/decisions endpoint.
+    """
+    try:
+        result = submit_decision_for_user_match(
+            user_id=user_id,
+            match_id=match_id,
+            decision=payload.decision,
+            matches_service_url="https://matches-service-870022169527.us-central1.run.app",
+        )
+        return result
+
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to submit decision: {str(e)}"
         )

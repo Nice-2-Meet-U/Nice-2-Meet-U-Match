@@ -271,6 +271,40 @@ def get_user_decisions_from_service(user_id: UUID, base_url: str):
         raise RuntimeError(f"Service communication error: {str(e)}")
 
 
+def submit_decision_for_user_match(
+    user_id: UUID,
+    match_id: UUID,
+    decision: str,
+    matches_service_url: str,
+):
+    """
+    Submit a decision for a match on behalf of a user.
+    Calls the POST /matches/{match_id}/decisions endpoint.
+    Returns the created decision.
+    """
+    try:
+        decision_response = requests.post(
+            f"{matches_service_url}/matches/{match_id}/decisions",
+            json={
+                "match_id": str(match_id),
+                "user_id": str(user_id),
+                "decision": decision,
+            },
+        )
+        decision_response.raise_for_status()
+        return decision_response.json()
+
+    except requests.RequestException as e:
+        if hasattr(e, "response") and e.response:
+            if e.response.status_code == 400:
+                raise ValueError(f"Invalid decision data: {e.response.text}")
+            elif e.response.status_code == 403:
+                raise PermissionError("User is not a participant in this match")
+            elif e.response.status_code == 404:
+                raise ValueError("Match not found")
+        raise RuntimeError(f"Service communication error: {str(e)}")
+
+
 def delete_user_from_pool_service(user_id: UUID, pools_service_url: str):
     """
     Remove a user from their pool.
