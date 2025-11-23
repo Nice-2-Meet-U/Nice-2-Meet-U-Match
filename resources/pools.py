@@ -7,6 +7,7 @@ from typing import Optional
 from uuid import UUID
 
 from frameworks.db.session import get_db
+from frameworks.db import models
 from services.pool_service import (
     create_pool,
     get_pool,
@@ -19,7 +20,7 @@ from services.pool_service import (
     get_pool_member,
     list_all_pool_members,
 )
-from models.pool import PoolCreate, PoolRead, PoolPatch, PoolMemberCreate, PoolMemberRead
+from models.pool import PoolCreate, PoolRead, PoolPatch, PoolMemberCreate, PoolMemberRead, PoolMemberDeleteResponse
 
 router = APIRouter()
 
@@ -61,6 +62,33 @@ def list_all_pool_members_endpoint(
     """List all pool members across all pools, optionally filtered by user_id."""
     members = list_all_pool_members(db, user_id=user_id)
     return members
+
+
+@router.delete("/members/delete", response_model=PoolMemberDeleteResponse)
+def delete_pool_member_by_user_endpoint(
+    user_id: UUID = Query(..., description="User ID to remove from their pool"),
+    db: Session = Depends(get_db),
+):
+    """Remove a user from their pool by user_id only."""
+    # Find which pool the user is in
+    member = db.query(models.PoolMember).filter(
+        models.PoolMember.user_id == str(user_id)
+    ).first()
+    
+    if not member:
+        raise HTTPException(status_code=404, detail="User is not a member of any pool")
+    
+    pool_id = member.pool_id
+    
+    try:
+        remove_pool_member(db, pool_id=UUID(pool_id), user_id=user_id)
+        return PoolMemberDeleteResponse(
+            message=f"User {user_id} removed from pool {pool_id}",
+            user_id=user_id,
+            pool_id=UUID(pool_id),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/{pool_id}", response_model=PoolRead)

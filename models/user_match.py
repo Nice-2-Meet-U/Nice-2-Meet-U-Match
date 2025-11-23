@@ -86,6 +86,7 @@ class UserPoolDeleteResponse(BaseModel):
     message: str
     user_id: str
     pool_id: str
+    pool_id: str
 
 
 class UserPoolCoordinatesPatch(BaseModel):

@@ -274,34 +274,23 @@ def get_user_decisions_from_service(user_id: UUID, base_url: str):
 def delete_user_from_pool_service(user_id: UUID, pools_service_url: str):
     """
     Remove a user from their pool.
-    First finds which pool the user is in, then removes them.
+    Uses the DELETE /pools/members/delete endpoint which finds and removes
+    the user's pool membership without requiring pool_id.
     This cascades - removing the pool member will also affect related matches.
     """
     try:
-        # Step 1: Find which pool the user is in
-        user_pool_data = get_user_pool_from_service(user_id, pools_service_url)
-        pool_id = user_pool_data.get("pool_id")
-        
-        if not pool_id:
-            raise ValueError("User is not a member of any pool")
-        
-        # Step 2: Remove the user from that pool
+        # Remove the user from their pool using the dedicated endpoint
         delete_response = requests.delete(
-            f"{pools_service_url}/pools/{pool_id}/members/{user_id}"
+            f"{pools_service_url}/pools/members/delete?user_id={user_id}"
         )
         delete_response.raise_for_status()
+        result = delete_response.json()
         
-        return {
-            "message": f"User {user_id} removed from pool {pool_id}",
-            "user_id": str(user_id),
-            "pool_id": pool_id,
-        }
+        return result
 
-    except ValueError:
-        raise
     except requests.RequestException as e:
         if hasattr(e, "response") and e.response and e.response.status_code == 404:
-            raise ValueError("User or pool not found")
+            raise ValueError("User is not a member of any pool")
         raise RuntimeError(f"Service communication error: {str(e)}")
 
 

@@ -53,3 +53,10 @@ class PoolMemberRead(PoolMemberBase):
     model_config = ConfigDict(
         from_attributes=True
     )
+
+
+class PoolMemberDeleteResponse(BaseModel):
+    """Response model for deleting a pool member."""
+    message: str
+    user_id: UUID
+    pool_id: UUID
