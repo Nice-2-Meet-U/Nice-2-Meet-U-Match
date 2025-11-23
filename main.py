@@ -47,7 +47,7 @@ app = FastAPI(
 # Group by resource type
 app.include_router(pools.router, prefix="/pools", tags=["pools"])
 app.include_router(matches.router, prefix="/matches", tags=["matches"])
-app.include_router(user_match.router, prefix="/users", tags=["users"])
+app.include_router(user_match.router, prefix="/users", tags=["user-match"])
 
 # ------------------------------------------------------------------------------
 # Healthcheck

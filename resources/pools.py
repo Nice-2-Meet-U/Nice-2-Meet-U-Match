@@ -64,9 +64,9 @@ def list_all_pool_members_endpoint(
     return members
 
 
-@router.delete("/members/delete", response_model=PoolMemberDeleteResponse)
+@router.delete("/members/{user_id}", response_model=PoolMemberDeleteResponse)
 def delete_pool_member_by_user_endpoint(
-    user_id: UUID = Query(..., description="User ID to remove from their pool"),
+    user_id: UUID,
     db: Session = Depends(get_db),
 ):
     """Remove a user from their pool by user_id only."""
@@ -173,18 +173,4 @@ def get_pool_member_endpoint(
     if not member:
         raise HTTPException(status_code=404, detail="User is not a member of this pool")
     return member
-
-
-@router.delete(
-    "/{pool_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT
-)
-def remove_pool_member_endpoint(
-    pool_id: UUID, user_id: UUID, db: Session = Depends(get_db)
-):
-    """Remove a user from a pool."""
-    try:
-        remove_pool_member(db, pool_id=pool_id, user_id=user_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    return None
 

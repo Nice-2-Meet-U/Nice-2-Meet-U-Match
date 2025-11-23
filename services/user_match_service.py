@@ -308,14 +308,14 @@ def submit_decision_for_user_match(
 def delete_user_from_pool_service(user_id: UUID, pools_service_url: str):
     """
     Remove a user from their pool.
-    Uses the DELETE /pools/members/delete endpoint which finds and removes
+    Uses the DELETE /pools/members/{user_id} endpoint which finds and removes
     the user's pool membership without requiring pool_id.
     This cascades - removing the pool member will also affect related matches.
     """
     try:
         # Remove the user from their pool using the dedicated endpoint
         delete_response = requests.delete(
-            f"{pools_service_url}/pools/members/delete?user_id={user_id}"
+            f"{pools_service_url}/pools/members/{user_id}"
         )
         delete_response.raise_for_status()
         result = delete_response.json()
