@@ -247,14 +247,15 @@ def get_pool_members_from_service(user_id: UUID, pools_service_url: str):
         raise RuntimeError(f"Service communication error: {str(e)}")
 
 
-def get_user_decisions_from_service(user_id: UUID, decisions_service_url: str):
+def get_user_decisions_from_service(user_id: UUID, base_url: str):
     """
     Get all decisions made by a specific user.
+    Now calls the dedicated decisions endpoint which requires user_id.
     Returns a list of decisions.
     """
     try:
         decisions_response = requests.get(
-            f"{decisions_service_url}/decisions?user_id={user_id}"
+            f"{base_url}/decisions?user_id={user_id}"
         )
         decisions_response.raise_for_status()
         decisions = decisions_response.json()
@@ -264,4 +265,72 @@ def get_user_decisions_from_service(user_id: UUID, decisions_service_url: str):
     except requests.RequestException as e:
         if hasattr(e, "response") and e.response and e.response.status_code == 404:
             return []  # No decisions found
+        raise RuntimeError(f"Service communication error: {str(e)}")
+
+
+def delete_user_from_pool_service(user_id: UUID, pools_service_url: str):
+    """
+    Remove a user from their pool.
+    First finds which pool the user is in, then removes them.
+    This cascades - removing the pool member will also affect related matches.
+    """
+    try:
+        # Step 1: Find which pool the user is in
+        user_pool_data = get_user_pool_from_service(user_id, pools_service_url)
+        pool_id = user_pool_data.get("pool_id")
+        
+        if not pool_id:
+            raise ValueError("User is not a member of any pool")
+        
+        # Step 2: Remove the user from that pool
+        delete_response = requests.delete(
+            f"{pools_service_url}/pools/{pool_id}/members/{user_id}"
+        )
+        delete_response.raise_for_status()
+        
+        return {
+            "message": f"User {user_id} removed from pool {pool_id}",
+            "user_id": str(user_id),
+            "pool_id": pool_id,
+        }
+
+    except ValueError:
+        raise
+    except requests.RequestException as e:
+        if hasattr(e, "response") and e.response and e.response.status_code == 404:
+            raise ValueError("User or pool not found")
+        raise RuntimeError(f"Service communication error: {str(e)}")
+
+
+def update_user_pool_coordinates_service(
+    user_id: UUID,
+    coord_x: Optional[float],
+    coord_y: Optional[float],
+    pools_service_url: str,
+):
+    """
+    Update a user's coordinates in their pool.
+    First finds which pool the user is in, then updates their member record.
+    Note: This is a partial update - only coordinates can be changed.
+    """
+    try:
+        # Step 1: Find which pool the user is in
+        user_pool_data = get_user_pool_from_service(user_id, pools_service_url)
+        pool_id = user_pool_data.get("pool_id")
+        
+        if not pool_id:
+            raise ValueError("User is not a member of any pool")
+        
+        # Step 2: Update the pool member coordinates
+        # Note: The pool member table doesn't have a PATCH endpoint in the atomic service
+        # We need to use the pool PATCH endpoint or re-implement member updates
+        # For now, we'll document this limitation
+        raise NotImplementedError(
+            "Pool member coordinate updates not supported by atomic service. "
+            "Use DELETE + POST to update member location."
+        )
+
+    except (ValueError, NotImplementedError):
+        raise
+    except requests.RequestException as e:
         raise RuntimeError(f"Service communication error: {str(e)}")

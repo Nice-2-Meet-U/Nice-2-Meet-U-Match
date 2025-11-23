@@ -11,13 +11,25 @@ from services.user_match_service import (
     generate_matches_for_user_service,
     get_pool_members_from_service,
     get_user_decisions_from_service,
+    delete_user_from_pool_service,
+    update_user_pool_coordinates_service,
 )
-from models.user_match import UserPoolPost
+from models.user_match import (
+    UserPoolPost,
+    UserPoolResponse,
+    UserPoolInfoResponse,
+    UserMatchesResponse,
+    GenerateMatchesResponse,
+    UserPoolMembersResponse,
+    UserDecisionsResponse,
+    UserPoolDeleteResponse,
+    UserPoolCoordinatesPatch,
+)
 
 router = APIRouter()
 
 
-@router.get("/{user_id}/pool")
+@router.get("/{user_id}/pool", response_model=UserPoolInfoResponse)
 def get_user_pool(user_id: UUID):
     """
     Get the pool information for a specific user.
@@ -40,8 +52,8 @@ def get_user_pool(user_id: UUID):
         )
 
 
-@router.post("/{user_id}/pool", status_code=status.HTTP_201_CREATED)
-def add_user_to_pool(user_id,payload: UserPoolPost):
+@router.post("/{user_id}/pool", response_model=UserPoolResponse, status_code=status.HTTP_201_CREATED)
+def add_user_to_pool(user_id: UUID, payload: UserPoolPost):
     """
     Add a user to a pool by location. Creates a new pool if none exists for the location,
     otherwise adds to a random existing pool at that location.
@@ -67,7 +79,7 @@ def add_user_to_pool(user_id,payload: UserPoolPost):
         )
 
 
-@router.post("/{user_id}/matches", status_code=status.HTTP_201_CREATED)
+@router.post("/{user_id}/matches", response_model=GenerateMatchesResponse, status_code=status.HTTP_201_CREATED)
 def generate_matches_for_user(user_id: UUID):
     """
     Find the user's pool and generate up to 10 random matches with other pool members.
@@ -91,7 +103,7 @@ def generate_matches_for_user(user_id: UUID):
         )
 
 
-@router.get("/{user_id}/matches")
+@router.get("/{user_id}/matches", response_model=UserMatchesResponse)
 def get_user_matches(user_id: UUID):
     """
     Get all matches for a specific user.
@@ -116,7 +128,7 @@ def get_user_matches(user_id: UUID):
         )
 
 
-@router.get("/{user_id}/pool-members")
+@router.get("/{user_id}/pool-members", response_model=UserPoolMembersResponse)
 def get_user_pool_members(user_id: UUID):
     """
     Get all users in the same pool as the specified user.
@@ -143,7 +155,7 @@ def get_user_pool_members(user_id: UUID):
         )
 
 
-@router.get("/{user_id}/decisions")
+@router.get("/{user_id}/decisions", response_model=UserDecisionsResponse)
 def get_user_decisions(user_id: UUID):
     """
     Get all decisions made by a specific user.
@@ -152,7 +164,7 @@ def get_user_decisions(user_id: UUID):
     try:
         decisions = get_user_decisions_from_service(
             user_id=user_id,
-            decisions_service_url="https://matches-service-870022169527.us-central1.run.app",
+            base_url="https://matches-service-870022169527.us-central1.run.app",
         )
         return {
             "user_id": str(user_id),
@@ -165,4 +177,54 @@ def get_user_decisions(user_id: UUID):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to retrieve user decisions: {str(e)}"
+        )
+
+
+@router.delete("/{user_id}/pool", response_model=UserPoolDeleteResponse)
+def remove_user_from_pool(user_id: UUID):
+    """
+    Remove a user from their pool.
+    This cascades to related matches and decisions through database constraints.
+    """
+    try:
+        result = delete_user_from_pool_service(
+            user_id=user_id,
+            pools_service_url="https://matches-service-870022169527.us-central1.run.app",
+        )
+        return result
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to remove user from pool: {str(e)}"
+        )
+
+
+@router.patch("/{user_id}/pool", response_model=UserPoolInfoResponse)
+def update_user_pool_coordinates(user_id: UUID, payload: UserPoolCoordinatesPatch):
+    """
+    Update a user's coordinates in their pool.
+    Note: Currently not implemented in atomic service - use DELETE + POST workflow instead.
+    """
+    try:
+        result = update_user_pool_coordinates_service(
+            user_id=user_id,
+            coord_x=payload.coord_x,
+            coord_y=payload.coord_y,
+            pools_service_url="https://matches-service-870022169527.us-central1.run.app",
+        )
+        return result
+
+    except NotImplementedError as e:
+        raise HTTPException(status_code=501, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to update user coordinates: {str(e)}"
         )

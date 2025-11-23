@@ -8,7 +8,9 @@ from uuid import UUID
 
 from frameworks.db.session import get_db
 from services.match_service import create_match, get_match, list_matches, patch_match
+from services.decision_service import submit_decision, list_decisions
 from models.match import MatchPost, MatchGet, MatchPatch, MatchStatus
+from models.decisions import DecisionPost, DecisionGet
 from frameworks.db import models
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
@@ -96,3 +98,67 @@ def patch_match_endpoint(
 def db_ping(db: Session = Depends(get_db)):
     db.execute(text("SELECT 1"))
     return {"ok": True}
+
+
+# =========================
+# Match Decision Endpoints
+# =========================
+
+
+@router.post("/{match_id}/decisions", response_model=DecisionGet, status_code=status.HTTP_201_CREATED)
+def submit_decision_endpoint(
+    match_id: UUID, 
+    payload: DecisionPost, 
+    db: Session = Depends(get_db)
+):
+    """Submit a decision (accept/reject) for a match."""
+    # Ensure the payload match_id matches the URL match_id
+    if payload.match_id != match_id:
+        raise HTTPException(
+            status_code=400, 
+            detail="Match ID in payload must match URL parameter"
+        )
+    
+    try:
+        submit_decision(
+            db,
+            match_id=payload.match_id,
+            user_id=payload.user_id,
+            decision=payload.decision,
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    # Return the decision row as confirmation
+    d = db.get(models.MatchDecision, (str(payload.match_id), str(payload.user_id)))
+    if not d:
+        raise HTTPException(status_code=500, detail="Decision not recorded")
+    return d
+
+
+@router.get("/{match_id}/decisions", response_model=list[DecisionGet])
+def list_match_decisions_endpoint(
+    match_id: UUID, 
+    db: Session = Depends(get_db)
+):
+    """List all decisions for a specific match."""
+    decisions = list_decisions(db, match_id=match_id)
+    return decisions
+
+
+@router.get("/{match_id}/decisions/{user_id}", response_model=DecisionGet)
+def get_match_decision_endpoint(
+    match_id: UUID, 
+    user_id: UUID, 
+    db: Session = Depends(get_db)
+):
+    """Get a specific user's decision for a match."""
+    decision = db.get(models.MatchDecision, (str(match_id), str(user_id)))
+    if not decision:
+        raise HTTPException(
+            status_code=404, 
+            detail="Decision not found for this user and match"
+        )
+    return decision
