@@ -17,6 +17,7 @@ from services.pool_service import (
     remove_pool_member,
     list_pool_members,
     get_pool_member,
+    list_all_pool_members,
 )
 from models.pool import PoolCreate, PoolRead, PoolPatch, PoolMemberCreate, PoolMemberRead
 
@@ -50,6 +51,16 @@ def list_pools_endpoint(
     """List all pools, optionally filtered by location."""
     pools = list_pools(db, location=location)
     return pools
+
+
+@router.get("/members", response_model=list[PoolMemberRead])
+def list_all_pool_members_endpoint(
+    user_id: Optional[UUID] = Query(None, description="Filter by user ID"),
+    db: Session = Depends(get_db),
+):
+    """List all pool members across all pools, optionally filtered by user_id."""
+    members = list_all_pool_members(db, user_id=user_id)
+    return members
 
 
 @router.get("/{pool_id}", response_model=PoolRead)

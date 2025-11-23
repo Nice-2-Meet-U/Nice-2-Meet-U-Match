@@ -217,11 +217,13 @@ def get_members_by_user_id(db: Session, user_id: UUID):
     return members
 
 
-def list_all_pool_members(db: Session):
+def list_all_pool_members(db: Session, user_id: UUID | None = None):
     """
     List all pool members across all pools.
+    Optionally filter by user_id to find a specific user's membership.
     """
-    return db.query(models.PoolMember).order_by(
-        models.PoolMember.joined_at.asc()
-    ).all()
+    q = db.query(models.PoolMember)
+    if user_id:
+        q = q.filter(models.PoolMember.user_id == str(user_id))
+    return q.order_by(models.PoolMember.joined_at.asc()).all()
 

@@ -8,15 +8,15 @@ This document describes how the `user_match` composite microservice satisfies th
 
 ### Atomic Microservices
 
-The system consists of three atomic microservices:
+The system consists of two atomic microservices:
 
 1. **Pools Service** (`/pools`) - Manages pool resources and pool membership
-2. **Matches Service** (`/matches`) - Manages match resources between users
-3. **Decisions Service** (`/decisions`) - Manages user decisions (accept/reject) on matches
+2. **Matches Service** (`/matches`) - Manages match resources and user decisions (accept/reject) on matches
+   - Decisions are nested under matches as `/matches/{match_id}/decisions`
 
 ### Composite Microservice: User Match (`/users`)
 
-The `user_match` composite microservice encapsulates and exposes functionality from all three atomic microservices through a unified, user-centric API.
+The `user_match` composite microservice encapsulates and exposes functionality from both atomic microservices through a unified, user-centric API.
 
 #### Architecture
 
@@ -26,17 +26,21 @@ The `user_match` composite microservice encapsulates and exposes functionality f
 │                                     │
 │  - GET /{user_id}/pool             │
 │  - POST /{user_id}/pool            │
+│  - DELETE /{user_id}/pool          │
+│  - PATCH /{user_id}/pool           │
 │  - GET /{user_id}/pool-members     │
 │  - GET /{user_id}/matches          │
 │  - POST /{user_id}/matches         │
 │  - GET /{user_id}/decisions        │
 └─────────────────────────────────────┘
-           │          │          │
-           ▼          ▼          ▼
-    ┌──────────┐ ┌──────────┐ ┌──────────┐
-    │  Pools   │ │ Matches  │ │Decisions │
-    │ Service  │ │ Service  │ │ Service  │
-    └──────────┘ └──────────┘ └──────────┘
+              │              │
+              ▼              ▼
+       ┌──────────┐   ┌──────────┐
+       │  Pools   │   │ Matches  │
+       │ Service  │   │ Service  │
+       │          │   │(includes │
+       │          │   │decisions)│
+       └──────────┘   └──────────┘
 ```
 
 #### Delegation to Atomic Services
@@ -47,10 +51,12 @@ Each composite endpoint delegates to one or more atomic services:
 |-------------------|---------------------|------------|
 | `GET /users/{user_id}/pool` | Pools | 1. GET /pools (list all)<br>2. GET /pools/{pool_id}/members/{user_id} (for each pool) |
 | `POST /users/{user_id}/pool` | Pools | 1. GET /pools?location={location}<br>2. POST /pools (if needed)<br>3. POST /pools/{pool_id}/members |
+| `DELETE /users/{user_id}/pool` | Pools | 1. Find user's pool<br>2. DELETE /pools/{pool_id}/members/{user_id} |
+| `PATCH /users/{user_id}/pool` | Pools | 1. Find user's pool<br>2. Update coordinates (not yet implemented in atomic service) |
 | `GET /users/{user_id}/pool-members` | Pools | 1. Reuse get_user_pool logic<br>2. GET /pools/{pool_id}/members |
 | `GET /users/{user_id}/matches` | Matches | 1. GET /matches?user_id={user_id} |
 | `POST /users/{user_id}/matches` | Pools, Matches | 1. Reuse get_user_pool logic<br>2. GET /pools/{pool_id}/members<br>3. POST /matches (multiple) |
-| `GET /users/{user_id}/decisions` | Decisions | 1. GET /decisions?user_id={user_id} |
+| `GET /users/{user_id}/decisions` | Matches | 1. GET /decisions?user_id={user_id} (legacy endpoint) |
 
 ## Requirement 2: Logical Foreign Key Constraints
 
@@ -195,9 +201,27 @@ The Matches service doesn't validate that users belong to the specified pool. Th
 4. **Flexibility**: Atomic services can be reused in other compositions
 5. **Validation Layer**: Business rules are enforced at the composition level
 
+## Additional Composite Operations
+
+### DELETE Operation: Cascading User Removal
+
+The composite service provides `DELETE /users/{user_id}/pool` which:
+1. Finds which pool the user belongs to
+2. Removes the user from that pool via `DELETE /pools/{pool_id}/members/{user_id}`
+3. Database CASCADE constraints automatically remove related matches and decisions
+
+This demonstrates cascade behavior where the composite service orchestrates deletions that ripple through related atomic services.
+
+### PATCH Operation: Coordinate Updates
+
+The composite service exposes `PATCH /users/{user_id}/pool` for updating user coordinates. Currently returns HTTP 501 (Not Implemented) because the atomic Pools service doesn't support partial member updates. Clients must use DELETE + POST workflow instead.
+
+This illustrates how composite services can identify gaps in atomic service capabilities.
+
 ## Code References
 
 - **Composite Router**: `resources/user_match.py`
 - **Composite Service Logic**: `services/user_match_service.py`
 - **Composite Models**: `models/user_match.py`
-- **Atomic Services**: `resources/pools.py`, `resources/matches.py`, `resources/decisions.py`
+- **Atomic Services**: `resources/pools.py`, `resources/matches.py`
+- **Decision Service Logic**: `services/decision_service.py` (business logic used by matches router)

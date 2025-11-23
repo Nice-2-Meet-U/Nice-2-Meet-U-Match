@@ -1,44 +1,38 @@
-# services/decision_service.py
+# services/user_match_service.py
 from __future__ import annotations
 
 from uuid import UUID
 import requests
 import random
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 def get_user_pool_from_service(user_id: UUID, pools_service_url: str):
     """
     Query the pools service to get pool information for a user.
-    First looks in all pool_members to find which pool the user is in,
+    Uses /pools/members?user_id={user_id} to find the user's pool membership,
     then retrieves the pool details.
     Returns pool data or raises an exception.
     """
     try:
-        # Step 1: Search through all pools to find which one contains this user
-        # Get all pools first
-        pools_response = requests.get(f"{pools_service_url}/pools")
-        pools_response.raise_for_status()
-        all_pools = pools_response.json()
+        # Step 1: Get the user's pool membership
+        members_response = requests.get(
+            f"{pools_service_url}/pools/members?user_id={user_id}"
+        )
+        members_response.raise_for_status()
+        members = members_response.json()
         
-        user_pool = None
-        user_member = None
-        
-        # Step 2: For each pool, check if user is a member
-        for pool in all_pools:
-            try:
-                member_response = requests.get(
-                    f"{pools_service_url}/pools/{pool['id']}/members/{user_id}"
-                )
-                if member_response.status_code == 200:
-                    user_member = member_response.json()
-                    user_pool = pool
-                    break
-            except requests.RequestException:
-                continue
-        
-        if not user_pool or not user_member:
+        if not members or len(members) == 0:
             raise ValueError("User is not a member of any pool")
+        
+        user_member = members[0]  # Should only be one membership per user
+        pool_id = user_member.get("pool_id")
+        
+        # Step 2: Fetch pool details
+        pool_response = requests.get(f"{pools_service_url}/pools/{pool_id}")
+        pool_response.raise_for_status()
+        user_pool = pool_response.json()
         
         # Step 3: Return combined pool and member information
         return {
@@ -186,9 +180,11 @@ def generate_matches_for_user_service(
             other_members, min(max_matches, len(other_members))
         )
 
-        # Create matches via matches service
+        # Create matches via matches service using threading for parallel creation
         created_matches = []
-        for member in selected_members:
+        
+        def create_match(member):
+            """Helper function to create a single match."""
             try:
                 match_response = requests.post(
                     f"{matches_service_url}/matches",
@@ -199,11 +195,18 @@ def generate_matches_for_user_service(
                     },
                 )
                 match_response.raise_for_status()
-                match = match_response.json()
-                created_matches.append(match)
+                return match_response.json()
             except requests.RequestException:
                 # Skip if match already exists or other error
-                continue
+                return None
+        
+        # Use ThreadPoolExecutor to create matches in parallel
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            future_to_member = {executor.submit(create_match, member): member for member in selected_members}
+            for future in as_completed(future_to_member):
+                match = future.result()
+                if match:
+                    created_matches.append(match)
 
         return {
             "message": f"Generated {len(created_matches)} matches for user {user_id}",
