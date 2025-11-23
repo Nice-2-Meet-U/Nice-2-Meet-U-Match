@@ -17,9 +17,11 @@ from services.pool_service import (
     remove_pool_member,
     list_pool_members,
     get_pool_member,
+    get_pool_by_user_id,
+    get_members_by_user_id,
+    list_all_pool_members,
 )
 from models.pool import PoolCreate, PoolRead, PoolPatch, PoolMemberCreate, PoolMemberRead
-from frameworks.db import models
 
 router = APIRouter()
 
@@ -43,15 +45,6 @@ def create_pool_endpoint(payload: PoolCreate, db: Session = Depends(get_db)):
     return pool
 
 
-@router.get("/{pool_id}", response_model=PoolRead)
-def get_pool_endpoint(pool_id: UUID, db: Session = Depends(get_db)):
-    """Get a pool by ID."""
-    pool = get_pool(db, pool_id)
-    if not pool:
-        raise HTTPException(status_code=404, detail="Pool not found")
-    return pool
-
-
 @router.get("/", response_model=list[PoolRead])
 def list_pools_endpoint(
     location: Optional[str] = Query(None, description="Filter pools by location"),
@@ -60,6 +53,65 @@ def list_pools_endpoint(
     """List all pools, optionally filtered by location."""
     pools = list_pools(db, location=location)
     return pools
+
+
+# =========================
+# New User-Based Endpoints (must come before /{pool_id})
+# =========================
+
+
+@router.get("/user/{user_id}")
+def get_user_pool_endpoint(user_id: UUID, db: Session = Depends(get_db)):
+    """Get the pool that a user belongs to by checking pool_members table."""
+    result = get_pool_by_user_id(db, user_id)
+    if not result:
+        raise HTTPException(
+            status_code=404, 
+            detail="User is not a member of any pool"
+        )
+    
+    return {
+        "pool_id": result["pool"].id,
+        "pool_name": result["pool"].name,
+        "location": result["pool"].location,
+        "member_count": result["pool"].member_count,
+        "joined_at": result["member"].joined_at,
+        "user_id": result["member"].user_id,
+    }
+
+
+@router.get("/members/all", response_model=list[PoolMemberRead])
+def list_all_members_endpoint(db: Session = Depends(get_db)):
+    """List all pool members across all pools."""
+    members = list_all_pool_members(db)
+    return members
+
+
+@router.get("/members/user/{user_id}", response_model=list[PoolMemberRead])
+def get_user_pool_members_endpoint(user_id: UUID, db: Session = Depends(get_db)):
+    """Get all members in the same pool as the specified user using pool_members table."""
+    members = get_members_by_user_id(db, user_id)
+    if not members:
+        raise HTTPException(
+            status_code=404, 
+            detail="User is not a member of any pool"
+        )
+    
+    return members
+
+
+# =========================
+# Pool-Specific Endpoints (after static routes)
+# =========================
+
+
+@router.get("/{pool_id}", response_model=PoolRead)
+def get_pool_endpoint(pool_id: UUID, db: Session = Depends(get_db)):
+    """Get a pool by ID."""
+    pool = get_pool(db, pool_id)
+    if not pool:
+        raise HTTPException(status_code=404, detail="Pool not found")
+    return pool
 
 
 @router.patch("/{pool_id}", response_model=PoolRead)

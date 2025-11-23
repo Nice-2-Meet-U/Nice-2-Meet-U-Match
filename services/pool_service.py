@@ -179,3 +179,49 @@ def get_pool_member(
     member = db.get(models.PoolMember, (str(pool_id), str(user_id)))
     return member
 
+
+def get_pool_by_user_id(db: Session, user_id: UUID):
+    """
+    Get the pool that a user belongs to by checking pool_members table.
+    Returns dict with pool and member info, or None if user is not in any pool.
+    """
+    member = db.query(models.PoolMember).filter(
+        models.PoolMember.user_id == str(user_id)
+    ).first()
+    
+    if not member:
+        return None
+    
+    pool = db.get(models.Pool, member.pool_id)
+    return {"pool": pool, "member": member}
+
+
+def get_members_by_user_id(db: Session, user_id: UUID):
+    """
+    Get all members in the same pool as the specified user.
+    Returns list of pool members, or None if user is not in any pool.
+    """
+    # First find which pool the user is in
+    user_member = db.query(models.PoolMember).filter(
+        models.PoolMember.user_id == str(user_id)
+    ).first()
+    
+    if not user_member:
+        return None
+    
+    # Get all members of that pool
+    members = db.query(models.PoolMember).filter(
+        models.PoolMember.pool_id == user_member.pool_id
+    ).order_by(models.PoolMember.joined_at.asc()).all()
+    
+    return members
+
+
+def list_all_pool_members(db: Session):
+    """
+    List all pool members across all pools.
+    """
+    return db.query(models.PoolMember).order_by(
+        models.PoolMember.joined_at.asc()
+    ).all()
+
