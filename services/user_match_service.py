@@ -10,21 +10,49 @@ from typing import Optional
 def get_user_pool_from_service(user_id: UUID, pools_service_url: str):
     """
     Query the pools service to get pool information for a user.
+    First looks in all pool_members to find which pool the user is in,
+    then retrieves the pool details.
     Returns pool data or raises an exception.
     """
     try:
-        pools_response = requests.get(f"{pools_service_url}/pools/user/{user_id}")
+        # Step 1: Search through all pools to find which one contains this user
+        # Get all pools first
+        pools_response = requests.get(f"{pools_service_url}/pools")
         pools_response.raise_for_status()
-        pool_data = pools_response.json()
-
-        if not pool_data:
+        all_pools = pools_response.json()
+        
+        user_pool = None
+        user_member = None
+        
+        # Step 2: For each pool, check if user is a member
+        for pool in all_pools:
+            try:
+                member_response = requests.get(
+                    f"{pools_service_url}/pools/{pool['id']}/members/{user_id}"
+                )
+                if member_response.status_code == 200:
+                    user_member = member_response.json()
+                    user_pool = pool
+                    break
+            except requests.RequestException:
+                continue
+        
+        if not user_pool or not user_member:
             raise ValueError("User is not a member of any pool")
+        
+        # Step 3: Return combined pool and member information
+        return {
+            "pool_id": user_pool["id"],
+            "pool_name": user_pool["name"],
+            "location": user_pool.get("location"),
+            "member_count": user_pool.get("member_count"),
+            "joined_at": user_member["joined_at"],
+            "user_id": user_member["user_id"],
+        }
 
-        return pool_data
-
+    except ValueError:
+        raise
     except requests.RequestException as e:
-        if hasattr(e, "response") and e.response and e.response.status_code == 404:
-            raise ValueError("User is not a member of any pool")
         raise RuntimeError(f"Service communication error: {str(e)}")
 
 
@@ -118,26 +146,25 @@ def generate_matches_for_user_service(
 ):
     """
     Generate matches for a user by:
-    1. Finding the user's pool via pools service
-    2. Getting all pool members
+    1. Finding the user's pool by searching pool_members
+    2. Getting all pool members from that pool
     3. Creating matches with random members via matches service
     Returns information about created matches.
     """
     try:
-        # Get user's pool information
-        pool_response = requests.get(f"{pools_service_url}/pools/user/{user_id}")
-        pool_response.raise_for_status()
-        pool_data = pool_response.json()
+        # Step 1: Find which pool the user is in
+        user_pool_data = get_user_pool_from_service(user_id, pools_service_url)
+        pool_id = user_pool_data.get("pool_id")
 
-        if not pool_data:
+        if not pool_id:
             raise ValueError(
                 "User is not a member of any pool. Add user to a pool first."
             )
 
-        pool_id = pool_data.get("pool_id")
-
-        # Get all members in the same pool
-        members_response = requests.get(f"{pools_service_url}/pools/members/user/{user_id}")
+        # Step 2: Get all members of that pool
+        members_response = requests.get(
+            f"{pools_service_url}/pools/{pool_id}/members"
+        )
         members_response.raise_for_status()
         pool_members = members_response.json()
 
@@ -155,8 +182,6 @@ def generate_matches_for_user_service(
             }
 
         # Select up to max_matches random other members
-        import random
-
         selected_members = random.sample(
             other_members, min(max_matches, len(other_members))
         )
@@ -187,29 +212,38 @@ def generate_matches_for_user_service(
             "matches": created_matches,
         }
 
+    except ValueError:
+        raise
     except requests.RequestException as e:
-        if hasattr(e, "response") and e.response and e.response.status_code == 404:
-            raise ValueError(str(e))
         raise RuntimeError(f"Service communication error: {str(e)}")
 
 
 def get_pool_members_from_service(user_id: UUID, pools_service_url: str):
     """
     Get all members in the same pool as the specified user.
+    First finds which pool the user is in, then gets all members of that pool.
     Returns a list of pool members.
     """
     try:
+        # Step 1: Find which pool the user is in
+        user_pool_data = get_user_pool_from_service(user_id, pools_service_url)
+        pool_id = user_pool_data.get("pool_id")
+        
+        if not pool_id:
+            raise ValueError("User is not a member of any pool")
+        
+        # Step 2: Get all members of that pool
         members_response = requests.get(
-            f"{pools_service_url}/pools/members/user/{user_id}"
+            f"{pools_service_url}/pools/{pool_id}/members"
         )
         members_response.raise_for_status()
         members = members_response.json()
 
         return members
 
+    except ValueError:
+        raise
     except requests.RequestException as e:
-        if hasattr(e, "response") and e.response and e.response.status_code == 404:
-            raise ValueError("User is not a member of any pool")
         raise RuntimeError(f"Service communication error: {str(e)}")
 
 
