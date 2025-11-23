@@ -22,6 +22,11 @@ class MatchStatus(str, Enum):
 class MatchBase(BaseModel):
     """Core fields for a pairwise match; status is server-driven."""
 
+    pool_id: UUID = Field(
+        ...,
+        description="Pool this match belongs to.",
+        json_schema_extra={"example": "11111111-1111-4111-8111-111111111111"},
+    )
     user1_id: UUID = Field(
         ...,
         description="First participant user ID.",
@@ -54,6 +59,7 @@ class MatchPost(MatchBase):
         json_schema_extra={
             "examples": [
                 {
+                    "pool_id": "11111111-1111-4111-8111-111111111111",
                     "user1_id": "22222222-2222-4222-8222-222222222222",
                     "user2_id": "33333333-3333-4333-8333-333333333333",
                 }
@@ -69,6 +75,7 @@ class MatchPut(MatchBase):
         json_schema_extra={
             "examples": [
                 {
+                    "pool_id": "11111111-1111-4111-8111-111111111111",
                     "user1_id": "22222222-2222-4222-8222-222222222222",
                     "user2_id": "33333333-3333-4333-8333-333333333333",
                 }
@@ -79,6 +86,11 @@ class MatchPut(MatchBase):
 
 class MatchPatch(BaseModel):
     """Partial update; status is optional and typically admin-only."""
+    pool_id: Optional[UUID] = Field(
+        None,
+        description="Move match to different pool.",
+        json_schema_extra={"example": "11111111-1111-4111-8111-111111111111"},
+    )
     user1_id: Optional[UUID] = Field(
         None,
         description="Replace first participant.",
@@ -110,6 +122,7 @@ class MatchGet(MatchBase):
 
     match_id: UUID = Field(
         default_factory=uuid4,
+        alias="id",
         description="Persistent match UUID (server-generated).",
         json_schema_extra={"example": "44444444-4444-4444-8444-444444444444"},
     )
@@ -128,15 +141,22 @@ class MatchGet(MatchBase):
         description="When the match last changed (UTC).",
         json_schema_extra={"example": "2025-06-01T10:20:00Z"},
     )
+    links: dict = Field(
+        default_factory=dict,
+        description="HATEOAS links for related resources.",
+        json_schema_extra={"example": {"self": "/matches/44444444-4444-4444-8444-444444444444", "decisions": "/matches/44444444-4444-4444-8444-444444444444/decisions"}},
+    )
     # Optional: include rollup if you expose it
     # accepted_by_both: bool = Field(False, description="True if both accepted.")
 
     model_config = ConfigDict(
         from_attributes=True,
+        populate_by_name=True,
         json_schema_extra={
             "examples": [
                 {
-                    "match_id": "44444444-4444-4444-8444-444444444444", 
+                    "match_id": "44444444-4444-4444-8444-444444444444",
+                    "pool_id": "11111111-1111-4111-8111-111111111111",
                     "user1_id": "22222222-2222-4222-8222-222222222222",
                     "user2_id": "33333333-3333-4333-8333-333333333333",
                     "status": "waiting",
