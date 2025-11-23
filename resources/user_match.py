@@ -41,7 +41,7 @@ def get_user_pool(user_id: UUID):
 
 
 @router.post("/{user_id}/pool", status_code=status.HTTP_201_CREATED)
-def add_user_to_pool(payload: UserPoolPost):
+def add_user_to_pool(user_id,payload: UserPoolPost):
     """
     Add a user to a pool by location. Creates a new pool if none exists for the location,
     otherwise adds to a random existing pool at that location.
