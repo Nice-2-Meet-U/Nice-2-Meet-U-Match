@@ -17,9 +17,11 @@ from services.pool_service import (
     remove_pool_member,
     list_pool_members,
     get_pool_member,
+    get_pool_by_user_id,
+    get_members_by_user_id,
+    list_all_pool_members,
 )
 from models.pool import PoolCreate, PoolRead, PoolPatch, PoolMemberCreate, PoolMemberRead
-from frameworks.db import models
 
 router = APIRouter()
 
@@ -149,4 +151,44 @@ def remove_pool_member_endpoint(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return None
+
+
+@router.get("/members", response_model=list[PoolMemberRead])
+def list_all_members_endpoint(db: Session = Depends(get_db)):
+    """List all pool members across all pools."""
+    members = list_all_pool_members(db)
+    return members
+
+
+@router.get("/{user_id}")
+def get_user_pool_endpoint(user_id: UUID, db: Session = Depends(get_db)):
+    """Get the pool that a user belongs to."""
+    result = get_pool_by_user_id(db, user_id)
+    if not result:
+        raise HTTPException(
+            status_code=404, 
+            detail="User is not a member of any pool"
+        )
+    
+    return {
+        "pool_id": result["pool"].id,
+        "pool_name": result["pool"].name,
+        "location": result["pool"].location,
+        "member_count": result["pool"].member_count,
+        "joined_at": result["member"].joined_at,
+        "user_id": result["member"].user_id,
+    }
+
+
+@router.get("/members/{user_id}", response_model=list[PoolMemberRead])
+def get_user_pool_members_endpoint(user_id: UUID, db: Session = Depends(get_db)):
+    """Get all members in the same pool as the specified user."""
+    members = get_members_by_user_id(db, user_id)
+    if not members:
+        raise HTTPException(
+            status_code=404, 
+            detail="User is not a member of any pool"
+        )
+    
+    return members
 

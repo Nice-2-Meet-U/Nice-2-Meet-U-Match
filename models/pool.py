@@ -22,8 +22,8 @@ class PoolPut(PoolBase):
 
 # ---- PATCH (partial update). All fields optional. ----
 class PoolPatch(BaseModel):
-    name: Optional[str] = None
     location: Optional[str] = None
+    member_count: Optional[int] = None
 
 
 # ---- GET (read) ----

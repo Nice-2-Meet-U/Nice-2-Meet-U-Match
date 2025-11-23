@@ -10,8 +10,10 @@ from frameworks.db.session import get_db
 from services.match_service import create_match, get_match, list_matches, patch_match
 from models.match import MatchPost, MatchGet, MatchPatch, MatchStatus
 from frameworks.db import models
-from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
+from models.decisions import DecisionPost, DecisionGet
+from services.user_match_service import submit_decision, list_decisions
+
 
 router = APIRouter()
 
@@ -91,8 +93,38 @@ def patch_match_endpoint(
         raise HTTPException(status_code=404, detail=str(e))
     return match
 
+# ------
+@router.post("/decisions", response_model=DecisionGet, status_code=status.HTTP_201_CREATED)
+def create_decision_endpoint(payload: DecisionPost, db: Session = Depends(get_db)):
+    try:
+        # submit_decision updates DB and returns the updated Match, we don't need
+        # the return value here because the endpoint returns the decision row.
+        submit_decision(
+            db,
+            match_id=payload.match_id,
+            user_id=payload.user_id,
+            decision=payload.decision,  # Already DecisionValue enum
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
-@router.get("/db-ping")
-def db_ping(db: Session = Depends(get_db)):
-    db.execute(text("SELECT 1"))
-    return {"ok": True}
+    # Return this user's current decision row as confirmation
+    # Use Session.get instead of Query.get (deprecated)
+    d = db.get(models.MatchDecision, (str(payload.match_id), str(payload.user_id)))
+    if not d:
+        # This should not happen; defensive
+        raise HTTPException(status_code=500, detail="Decision not recorded")
+    return d
+
+
+@router.get("/decisions", response_model=list[DecisionGet])
+def list_decisions_endpoint(
+    match_id: Optional[UUID] = Query(None),
+    user_id: Optional[UUID] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """List decisions with optional filters by match_id or user_id."""
+    decisions = list_decisions(db, match_id=match_id, user_id=user_id)
+    return decisions
