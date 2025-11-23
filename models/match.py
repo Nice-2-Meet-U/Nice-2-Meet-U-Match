@@ -22,11 +22,6 @@ class MatchStatus(str, Enum):
 class MatchBase(BaseModel):
     """Core fields for a pairwise match; status is server-driven."""
 
-    pool_id: UUID = Field(
-        ...,
-        description="Pool this match belongs to.",
-        json_schema_extra={"example": "11111111-1111-4111-8111-111111111111"},
-    )
     user1_id: UUID = Field(
         ...,
         description="First participant user ID.",
@@ -59,7 +54,6 @@ class MatchPost(MatchBase):
         json_schema_extra={
             "examples": [
                 {
-                    "pool_id": "11111111-1111-4111-8111-111111111111",
                     "user1_id": "22222222-2222-4222-8222-222222222222",
                     "user2_id": "33333333-3333-4333-8333-333333333333",
                 }
@@ -75,7 +69,6 @@ class MatchPut(MatchBase):
         json_schema_extra={
             "examples": [
                 {
-                    "pool_id": "11111111-1111-4111-8111-111111111111",
                     "user1_id": "22222222-2222-4222-8222-222222222222",
                     "user2_id": "33333333-3333-4333-8333-333333333333",
                 }
@@ -86,12 +79,6 @@ class MatchPut(MatchBase):
 
 class MatchPatch(BaseModel):
     """Partial update; status is optional and typically admin-only."""
-
-    pool_id: Optional[UUID] = Field(
-        None,
-        description="Change pool (rare).",
-        json_schema_extra={"example": "11111111-1111-4111-8111-111111111111"},
-    )
     user1_id: Optional[UUID] = Field(
         None,
         description="Replace first participant.",
@@ -149,8 +136,7 @@ class MatchGet(MatchBase):
         json_schema_extra={
             "examples": [
                 {
-                    "match_id": "44444444-4444-4444-8444-444444444444",
-                    "pool_id": "11111111-1111-4111-8111-111111111111",
+                    "match_id": "44444444-4444-4444-8444-444444444444", 
                     "user1_id": "22222222-2222-4222-8222-222222222222",
                     "user2_id": "33333333-3333-4333-8333-333333333333",
                     "status": "waiting",

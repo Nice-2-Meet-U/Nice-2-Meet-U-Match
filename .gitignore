@@ -2,3 +2,6 @@
 .env
 .env.local
 *.pyc
+DEPLOYMENT_COMPLETE.md
+DEPLOYMENT.md
+instructions.md

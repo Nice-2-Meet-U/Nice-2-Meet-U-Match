@@ -18,6 +18,31 @@ from services.user_match_service import submit_decision, list_decisions
 router = APIRouter()
 
 
+def add_match_links(match):
+    """Add HATEOAS links to a match object."""
+    match_dict = match if isinstance(match, dict) else match.__dict__
+    match_id = match_dict.get('id') or match_dict.get('match_id')
+    
+    links = {
+        "self": f"/matches/{match_id}",
+        "decisions": f"/matches/{match_id}/decisions"
+    }
+    
+    # If match is a Pydantic model, update it
+    if hasattr(match, 'links'):
+        match.links = links
+    # If it's a dict, add links
+    elif isinstance(match, dict):
+        match['links'] = links
+    # If it's an ORM object, create a response dict
+    else:
+        match_response = MatchGet.from_orm(match)
+        match_response.links = links
+        return match_response
+    
+    return match
+
+
 @router.post("/", response_model=MatchGet, status_code=status.HTTP_201_CREATED)
 def create_match_endpoint(payload: MatchPost, db: Session = Depends(get_db)):
     try:
@@ -28,7 +53,12 @@ def create_match_endpoint(payload: MatchPost, db: Session = Depends(get_db)):
             user1_id=payload.user1_id,
             user2_id=payload.user2_id,
         )
-        return match
+        match_response = MatchGet.model_validate(match)
+        match_response.links = {
+            "self": f"/matches/{match.id}",
+            "decisions": f"/matches/{match.id}/decisions"
+        }
+        return match_response
 
     except IntegrityError:
         db.rollback()
@@ -55,7 +85,12 @@ def get_match_endpoint(match_id: UUID, db: Session = Depends(get_db)):
     m = get_match(db, match_id)
     if not m:
         raise HTTPException(status_code=404, detail="Match not found")
-    return m
+    match_response = MatchGet.model_validate(m)
+    match_response.links = {
+        "self": f"/matches/{m.id}",
+        "decisions": f"/matches/{m.id}/decisions"
+    }
+    return match_response
 
 
 @router.get("/", response_model=list[MatchGet])
@@ -73,7 +108,16 @@ def list_matches_endpoint(
         user_id=user_id,
         status_filter=status_filter.value if status_filter else None,
     )
-    return matches
+    # Add HATEOAS links to each match
+    matches_with_links = []
+    for match in matches:
+        match_response = MatchGet.model_validate(match)
+        match_response.links = {
+            "self": f"/matches/{match.id}",
+            "decisions": f"/matches/{match.id}/decisions"
+        }
+        matches_with_links.append(match_response)
+    return matches_with_links
 
 
 @router.patch("/{match_id}", response_model=MatchGet)
@@ -89,9 +133,14 @@ def patch_match_endpoint(
             user2_id=payload.user2_id,
             status=payload.status.value if payload.status else None,
         )
+        match_response = MatchGet.model_validate(match)
+        match_response.links = {
+            "self": f"/matches/{match.id}",
+            "decisions": f"/matches/{match.id}/decisions"
+        }
+        return match_response
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    return match
 
 # ------
 @router.post("/decisions", response_model=DecisionGet, status_code=status.HTTP_201_CREATED)
