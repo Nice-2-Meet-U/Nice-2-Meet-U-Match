@@ -13,7 +13,7 @@ def get_user_pool_from_service(user_id: UUID, pools_service_url: str):
     Returns pool data or raises an exception.
     """
     try:
-        pools_response = requests.get(f"{pools_service_url}/pools/{user_id}")
+        pools_response = requests.get(f"{pools_service_url}/pools/user/{user_id}")
         pools_response.raise_for_status()
         pool_data = pools_response.json()
 
@@ -125,7 +125,7 @@ def generate_matches_for_user_service(
     """
     try:
         # Get user's pool information
-        pool_response = requests.get(f"{pools_service_url}/pools/{user_id}")
+        pool_response = requests.get(f"{pools_service_url}/pools/user/{user_id}")
         pool_response.raise_for_status()
         pool_data = pool_response.json()
 
@@ -137,7 +137,7 @@ def generate_matches_for_user_service(
         pool_id = pool_data.get("pool_id")
 
         # Get all members in the same pool
-        members_response = requests.get(f"{pools_service_url}/pools/members/{user_id}")
+        members_response = requests.get(f"{pools_service_url}/pools/members/user/{user_id}")
         members_response.raise_for_status()
         pool_members = members_response.json()
 
@@ -190,4 +190,44 @@ def generate_matches_for_user_service(
     except requests.RequestException as e:
         if hasattr(e, "response") and e.response and e.response.status_code == 404:
             raise ValueError(str(e))
+        raise RuntimeError(f"Service communication error: {str(e)}")
+
+
+def get_pool_members_from_service(user_id: UUID, pools_service_url: str):
+    """
+    Get all members in the same pool as the specified user.
+    Returns a list of pool members.
+    """
+    try:
+        members_response = requests.get(
+            f"{pools_service_url}/pools/members/user/{user_id}"
+        )
+        members_response.raise_for_status()
+        members = members_response.json()
+
+        return members
+
+    except requests.RequestException as e:
+        if hasattr(e, "response") and e.response and e.response.status_code == 404:
+            raise ValueError("User is not a member of any pool")
+        raise RuntimeError(f"Service communication error: {str(e)}")
+
+
+def get_user_decisions_from_service(user_id: UUID, decisions_service_url: str):
+    """
+    Get all decisions made by a specific user.
+    Returns a list of decisions.
+    """
+    try:
+        decisions_response = requests.get(
+            f"{decisions_service_url}/decisions?user_id={user_id}"
+        )
+        decisions_response.raise_for_status()
+        decisions = decisions_response.json()
+
+        return decisions
+
+    except requests.RequestException as e:
+        if hasattr(e, "response") and e.response and e.response.status_code == 404:
+            return []  # No decisions found
         raise RuntimeError(f"Service communication error: {str(e)}")

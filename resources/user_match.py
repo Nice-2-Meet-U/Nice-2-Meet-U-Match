@@ -9,6 +9,8 @@ from services.user_match_service import (
     add_user_to_pool_service,
     get_user_matches_from_service,
     generate_matches_for_user_service,
+    get_pool_members_from_service,
+    get_user_decisions_from_service,
 )
 from models.user_match import UserPoolPost
 
@@ -111,4 +113,56 @@ def get_user_matches(user_id: UUID):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to retrieve user matches: {str(e)}"
+        )
+
+
+@router.get("/{user_id}/pool-members")
+def get_user_pool_members(user_id: UUID):
+    """
+    Get all users in the same pool as the specified user.
+    Returns a list of pool members.
+    """
+    try:
+        members = get_pool_members_from_service(
+            user_id=user_id,
+            pools_service_url="https://matches-service-870022169527.us-central1.run.app",
+        )
+        return {
+            "user_id": str(user_id),
+            "members_count": len(members),
+            "members": members,
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to retrieve pool members: {str(e)}"
+        )
+
+
+@router.get("/{user_id}/decisions")
+def get_user_decisions(user_id: UUID):
+    """
+    Get all decisions made by a specific user.
+    Returns a list of decisions (accept/reject) for matches.
+    """
+    try:
+        decisions = get_user_decisions_from_service(
+            user_id=user_id,
+            decisions_service_url="https://matches-service-870022169527.us-central1.run.app",
+        )
+        return {
+            "user_id": str(user_id),
+            "decisions_count": len(decisions),
+            "decisions": decisions,
+        }
+
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to retrieve user decisions: {str(e)}"
         )
