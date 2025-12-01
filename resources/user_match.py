@@ -62,7 +62,7 @@ def add_user_to_pool(user_id: UUID, payload: UserPoolPost):
     """
     try:
         result = add_user_to_pool_service(
-            user_id=payload.user_id,
+            user_id=str(user_id),
             location=payload.location,
             coord_x=payload.coord_x,
             coord_y=payload.coord_y,

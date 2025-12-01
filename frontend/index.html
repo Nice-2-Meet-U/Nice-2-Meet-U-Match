@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nice 2 Meet U - Match Service</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎉 Nice 2 Meet U - Match Service</h1>
+            <p class="subtitle">Find and connect with people in your area</p>
+        </header>
+
+        <div class="main-content">
+            <!-- User ID Input Section -->
+            <section class="card">
+                <h2>👤 User Setup</h2>
+                <div class="form-group">
+                    <label for="userId">User ID (UUID):</label>
+                    <input type="text" id="userId" placeholder="Enter your user ID or generate one">
+                    <button onclick="generateUUID()" class="btn btn-secondary">Generate New UUID</button>
+                </div>
+            </section>
+
+            <!-- Join Pool Section -->
+            <section class="card">
+                <h2>📍 Join a Pool</h2>
+                <div class="form-group">
+                    <label for="location">Location:</label>
+                    <input type="text" id="location" placeholder="e.g., New York, London">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="coordX">Latitude:</label>
+                        <input type="number" id="coordX" step="0.000001" placeholder="40.7128">
+                    </div>
+                    <div class="form-group">
+                        <label for="coordY">Longitude:</label>
+                        <input type="number" id="coordY" step="0.000001" placeholder="-74.0060">
+                    </div>
+                </div>
+                <button onclick="joinPool()" class="btn btn-primary">Join Pool</button>
+            </section>
+
+            <!-- Pool Info Section -->
+            <section class="card">
+                <h2>🏊 My Pool Information</h2>
+                <button onclick="getPoolInfo()" class="btn btn-primary">Get Pool Info</button>
+                <button onclick="getPoolMembers()" class="btn btn-secondary">View Pool Members</button>
+                <button onclick="leavePool()" class="btn btn-danger">Leave Pool</button>
+                <div id="poolInfo" class="result-area"></div>
+            </section>
+
+            <!-- Matches Section -->
+            <section class="card">
+                <h2>💕 Matches</h2>
+                <button onclick="generateMatches()" class="btn btn-primary">Generate New Matches</button>
+                <button onclick="getMatches()" class="btn btn-secondary">View My Matches</button>
+                <div id="matchesInfo" class="result-area"></div>
+            </section>
+
+            <!-- Decisions Section -->
+            <section class="card">
+                <h2>✅ My Decisions</h2>
+                <button onclick="getDecisions()" class="btn btn-primary">View Decisions</button>
+                <div id="decisionsInfo" class="result-area"></div>
+            </section>
+
+            <!-- Make Decision Section -->
+            <section class="card">
+                <h2>🎯 Make a Decision</h2>
+                <div class="form-group">
+                    <label for="matchId">Match ID:</label>
+                    <input type="text" id="matchId" placeholder="Enter match ID">
+                </div>
+                <div class="button-group">
+                    <button onclick="makeDecision('accept')" class="btn btn-success">✅ Accept</button>
+                    <button onclick="makeDecision('reject')" class="btn btn-danger">❌ Reject</button>
+                </div>
+                <div id="decisionResult" class="result-area"></div>
+            </section>
+        </div>
+
+        <footer>
+            <p>Nice 2 Meet U Match Service © 2025</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

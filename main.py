@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 # Routers
 from resources import matches, pools, user_match
@@ -31,13 +32,25 @@ async def lifespan(app: FastAPI):
     logging.info("🛑 Matches service shutting down.")
 
 app = FastAPI(
-    title="Matches Microservice",
+    title="Matches Feature",
     version="1.0.0",
     description=(
         "A microservice for handling match pools, pairwise matches, and "
         "user decisions (accept/reject) between participants."
     ),
     lifespan=lifespan,
+)
+
+# ------------------------------------------------------------------------------
+# CORS Configuration
+# ------------------------------------------------------------------------------
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify your frontend domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ------------------------------------------------------------------------------
