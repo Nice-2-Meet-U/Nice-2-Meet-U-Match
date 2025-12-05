@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 from frameworks.db import models
+from services.event_publisher import get_event_publisher
 
 
 def create_pool(
@@ -70,7 +71,10 @@ def update_pool(
 
 
 def delete_pool(db: Session, pool_id: UUID):
-    """Delete a pool (cascades to members and matches)."""
+    """
+    Delete a pool (cascades to members and matches).
+    Database CASCADE handles all cleanup automatically.
+    """
     pool = db.get(models.Pool, str(pool_id))
     if not pool:
         raise ValueError("Pool not found")
@@ -134,7 +138,7 @@ def remove_pool_member(
 ):
     """
     Remove a user from a pool.
-    Updates the pool's member_count.
+    Updates the pool's member_count and publishes event for match cleanup.
     """
     pool = db.get(models.Pool, str(pool_id))
     if not pool:
@@ -155,6 +159,11 @@ def remove_pool_member(
     )
     
     db.commit()
+    
+    # Publish event for match cleanup (non-blocking)
+    publisher = get_event_publisher()
+    publisher.publish_user_left_pool(pool_id=pool_id, user_id=user_id)
+    
     return True
 
 

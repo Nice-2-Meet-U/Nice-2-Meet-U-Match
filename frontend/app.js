@@ -1,5 +1,5 @@
 // Configuration
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'https://matches-service-870022169527.us-central1.run.app';
 
 // Utility Functions
 function generateUUID() {
@@ -184,7 +184,32 @@ async function generateMatches() {
         }
 
         const data = await response.json();
-        showJSON('matchesInfo', data, 'success');
+        
+        // Format the generated matches nicely
+        let html = `<div class="success">
+            <h3>${data.message}</h3>
+            <p><strong>Pool ID:</strong> ${data.pool_id}</p>
+            <p><strong>Matches Created:</strong> ${data.matches_created}</p>
+            <div style="margin-top: 15px;">`;
+        
+        if (data.matches_created === 0) {
+            html += '<p>No matches were created.</p>';
+        } else {
+            data.matches.forEach((match, index) => {
+                html += `<div class="match-item">
+                    <h4>Match ${index + 1}</h4>
+                    <p><strong>Match ID:</strong> ${match.match_id}</p>
+                    <p><strong>User 1:</strong> ${match.user1_id}</p>
+                    <p><strong>User 2:</strong> ${match.user2_id}</p>
+                    <p><strong>Status:</strong> ${match.status}</p>
+                    <p><strong>Created:</strong> ${new Date(match.created_at).toLocaleString()}</p>
+                </div>`;
+            });
+        }
+        
+        html += '</div></div>';
+        document.getElementById('matchesInfo').innerHTML = html;
+        document.getElementById('matchesInfo').style.display = 'block';
     } catch (error) {
         showError('matchesInfo', error.message);
     }
@@ -216,8 +241,8 @@ async function getMatches() {
                 html += `<div class="match-item">
                     <h4>Match ${index + 1}</h4>
                     <p><strong>Match ID:</strong> ${match.match_id}</p>
-                    <p><strong>User 1:</strong> ${match.user_id_1}</p>
-                    <p><strong>User 2:</strong> ${match.user_id_2}</p>
+                    <p><strong>User 1:</strong> ${match.user1_id}</p>
+                    <p><strong>User 2:</strong> ${match.user2_id}</p>
                     <p><strong>Status:</strong> ${match.status}</p>
                     <p><strong>Created:</strong> ${new Date(match.created_at).toLocaleString()}</p>
                 </div>`;
@@ -258,11 +283,10 @@ async function getDecisions() {
                 const decisionClass = decision.decision === 'accept' ? 'btn-success' : 'btn-danger';
                 html += `<div class="match-item">
                     <h4>Decision ${index + 1}</h4>
-                    <p><strong>Decision ID:</strong> ${decision.decision_id}</p>
                     <p><strong>Match ID:</strong> ${decision.match_id}</p>
                     <p><strong>User ID:</strong> ${decision.user_id}</p>
                     <p><strong>Decision:</strong> <span class="${decisionClass}" style="display: inline-block; padding: 5px 10px; border-radius: 5px; font-size: 0.9em;">${decision.decision.toUpperCase()}</span></p>
-                    <p><strong>Created:</strong> ${new Date(decision.created_at).toLocaleString()}</p>
+                    <p><strong>Decided At:</strong> ${new Date(decision.decided_at).toLocaleString()}</p>
                 </div>`;
             });
         }
@@ -316,3 +340,4 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Nice 2 Meet U Match Service - Frontend Ready!');
     console.log('API Base URL:', API_BASE_URL);
 });
+// Updated: Fri Dec  5 07:22:20 EST 2025

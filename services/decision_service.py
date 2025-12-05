@@ -47,16 +47,16 @@ def submit_decision(
         SET status = CASE
             WHEN EXISTS (
                 SELECT 1 FROM match_decisions md
-                WHERE md.match_id = m.id AND md.decision = 'reject'
+                WHERE md.match_id = m.match_id AND md.decision = 'reject'
             ) THEN 'rejected'
             WHEN (
                 SELECT COUNT(*) FROM match_decisions md
-                WHERE md.match_id = m.id AND md.decision = 'accept'
+                WHERE md.match_id = m.match_id AND md.decision = 'accept'
             ) = 2 THEN 'accepted'
             ELSE 'waiting'
         END,
         updated_at = NOW()
-        WHERE m.id = :mid
+        WHERE m.match_id = :mid
         """
     )
     db.execute(status_sql, {"mid": str(match_id)})

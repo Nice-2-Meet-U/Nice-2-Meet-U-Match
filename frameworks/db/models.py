@@ -58,7 +58,7 @@ class PoolMember(Base):
 
 class Match(Base):
     __tablename__ = "matches"
-    id = Column(CHAR(36), primary_key=True, default=lambda: str(uuid4()), index=True)
+    match_id = Column(CHAR(36), primary_key=True, default=lambda: str(uuid4()), index=True)
     pool_id = Column(
         CHAR(36), ForeignKey("pools.id", ondelete="CASCADE"), nullable=False
     )
@@ -85,7 +85,7 @@ class Match(Base):
 class MatchDecision(Base):
     __tablename__ = "match_decisions"
     match_id = Column(
-        CHAR(36), ForeignKey("matches.id", ondelete="CASCADE"), primary_key=True
+        CHAR(36), ForeignKey("matches.match_id", ondelete="CASCADE"), primary_key=True
     )
     user_id = Column(CHAR(36), primary_key=True)
     decision = Column(

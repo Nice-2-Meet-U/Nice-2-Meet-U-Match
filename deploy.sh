@@ -21,7 +21,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --platform managed \
   --region "$REGION" \
   --allow-unauthenticated \
-  --set-env-vars "INSTANCE_CONNECTION_NAME=$INSTANCE_CONNECTION_NAME,DB_USER=gb2975,DB_PASS=Ciociaobio26@,DB_NAME=matches" \
+  --set-env-vars "INSTANCE_CONNECTION_NAME=$INSTANCE_CONNECTION_NAME,DB_USER=gb2975,DB_PASS=Ciociaobio26@,DB_NAME=matches,GCP_PROJECT_ID=$PROJECT_ID,POOL_EVENTS_TOPIC=user_left_pool,ENABLE_EVENT_PUBLISHING=true" \
   --add-cloudsql-instances "$INSTANCE_CONNECTION_NAME" \
   --timeout=300 \
   --max-instances=10 \

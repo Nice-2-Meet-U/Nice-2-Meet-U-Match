@@ -263,17 +263,38 @@ def get_pool_members_from_service(user_id: UUID, pools_service_url: str):
 def get_user_decisions_from_service(user_id: UUID, base_url: str):
     """
     Get all decisions made by a specific user.
-    Now calls the dedicated decisions endpoint which requires user_id.
+    Calls the matches service decisions endpoint with user_id filter.
     Returns a list of decisions.
     """
     try:
-        decisions_response = requests.get(
-            f"{base_url}/decisions?user_id={user_id}"
+        # The matches service endpoint supports filtering by user_id
+        # We need to get all matches for this user and their decisions
+        # Or we can add a general decisions endpoint
+        
+        # For now, get all matches for the user first
+        matches_response = requests.get(
+            f"{base_url}/matches?user_id={user_id}"
         )
-        decisions_response.raise_for_status()
-        decisions = decisions_response.json()
-
-        return decisions
+        matches_response.raise_for_status()
+        matches = matches_response.json()
+        
+        # Then get decisions for each match where this user participated
+        all_decisions = []
+        for match in matches:
+            match_id = match.get("match_id")
+            if match_id:
+                try:
+                    # Try to get this user's decision for this match
+                    decision_response = requests.get(
+                        f"{base_url}/matches/{match_id}/decisions/{user_id}"
+                    )
+                    if decision_response.status_code == 200:
+                        all_decisions.append(decision_response.json())
+                except:
+                    # Decision doesn't exist for this match yet
+                    pass
+        
+        return all_decisions
 
     except requests.RequestException as e:
         if hasattr(e, "response") and e.response and e.response.status_code == 404:

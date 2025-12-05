@@ -9,6 +9,7 @@ from uuid import UUID
 from frameworks.db.session import get_db
 from services.match_service import create_match, get_match, list_matches, patch_match
 from services.decision_service import submit_decision, list_decisions
+from services.match_cleanup_service import cleanup_user_matches
 from models.match import MatchPost, MatchGet, MatchPatch, MatchStatus
 from models.decisions import DecisionPost, DecisionGet
 from frameworks.db import models
@@ -162,3 +163,41 @@ def get_match_decision_endpoint(
             detail="Decision not found for this user and match"
         )
     return decision
+
+
+# =========================
+# Internal Cleanup Endpoints
+# =========================
+
+
+@router.delete("/internal/cleanup/user/{user_id}/pool/{pool_id}")
+def cleanup_user_matches_endpoint(
+    user_id: UUID,
+    pool_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Clean up non-accepted matches for a user who left a pool.
+    
+    This endpoint is called by the Cloud Function when it receives
+    a pool_member_removed event from Pub/Sub.
+    
+    Deletes all matches where:
+    - User is a participant (user1_id OR user2_id)
+    - Match is in the specified pool
+    - Status is NOT 'accepted' (i.e., waiting or rejected)
+    
+    Returns statistics about deleted matches and decisions.
+    """
+    try:
+        result = cleanup_user_matches(
+            db,
+            pool_id=pool_id,
+            user_id=user_id
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to cleanup matches: {str(e)}"
+        )
