@@ -5,8 +5,9 @@ This guide walks you through deploying the Matches microservice to Google Cloud 
 ## Prerequisites
 
 1. **Google Cloud SDK (gcloud)** installed and authenticated
-2. **A GCP project** with billing enabled
+2. **A GCP project** with billing enabled (Project ID: `cloudexploration-477701`)
 3. **Required APIs enabled** (see Step 2)
+4. **Python 3.11** runtime compatible codebase
 
 ## Step 1: Verify gcloud Setup
 
@@ -34,7 +35,9 @@ gcloud services enable \
   run.googleapis.com \
   sqladmin.googleapis.com \
   cloudbuild.googleapis.com \
-  artifactregistry.googleapis.com
+  artifactregistry.googleapis.com \
+  pubsub.googleapis.com \
+  cloudfunctions.googleapis.com
 ```
 
 ## Step 3: Create Cloud SQL MySQL Instance
@@ -88,12 +91,16 @@ gcloud run deploy matches-service \
     INSTANCE_CONNECTION_NAME="$INSTANCE_CONNECTION_NAME",\
     DB_USER=root,\
     DB_PASS="$DB_PASSWORD",\
-    DB_NAME=matches \
+    DB_NAME=matches,\
+    POOLS_SERVICE_URL=https://matches-service-s556fwc6ua-uc.a.run.app \
   --add-cloudsql-instances $INSTANCE_CONNECTION_NAME \
   --project $PROJECT_ID
 ```
 
-**Important:** The service will automatically create database tables on first startup via `Base.metadata.create_all()`.
+**Important:** 
+- The service will automatically create database tables on first startup via `Base.metadata.create_all()`.
+- The `POOLS_SERVICE_URL` is set to the same service URL since the composite service is integrated into the same deployment.
+- The deployment script (`deploy.sh`) handles automatic updating of this environment variable.
 
 ## Step 6: Grant Cloud SQL Client Permission
 
@@ -288,13 +295,39 @@ gcloud container images delete gcr.io/$PROJECT_ID/matches-service:latest
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `INSTANCE_CONNECTION_NAME` | Cloud SQL connection name | Yes (if no DATABASE_URL) |
+| `INSTANCE_CONNECTION_NAME` | Cloud SQL connection name (e.g., cloudexploration-477701:us-central1:matches-db) | Yes (if no DATABASE_URL) |
 | `DB_USER` | Database username | Yes (default: root) |
 | `DB_PASS` | Database password | Yes |
 | `DB_NAME` | Database name | Yes (default: matches) |
+| `POOLS_SERVICE_URL` | URL to pools/composite service (same as service URL) | Yes |
 | `DATABASE_URL` | Direct connection string | Alternative to Cloud SQL |
 | `SQL_ECHO` | Log SQL queries | No (default: false) |
 | `PRIVATE_IP` | Use private IP | No (default: false) |
+
+## Event-Driven Match Cleanup Setup
+
+After deploying the main service, set up the Cloud Function for automatic match cleanup:
+
+```bash
+# Create Pub/Sub topic
+gcloud pubsub topics create user_left_pool
+
+# Deploy Cloud Function
+gcloud functions deploy match-cleanup-handler \
+  --gen2 \
+  --runtime=python311 \
+  --region=$REGION \
+  --source=./cloud_functions \
+  --entry-point=handle_pool_event \
+  --trigger-topic=user_left_pool \
+  --set-env-vars=MATCHES_SERVICE_URL=$SERVICE_URL
+
+# Test the function (optional)
+gcloud pubsub topics publish user_left_pool \
+  --message='{"event_type":"pool_member_removed","pool_id":"test-pool","user_id":"test-user","timestamp":"2025-01-01T00:00:00Z"}'
+```
+
+See `EVENTS_ARCHITECTURE.md` for detailed event flow documentation.
 
 ## Next Steps
 

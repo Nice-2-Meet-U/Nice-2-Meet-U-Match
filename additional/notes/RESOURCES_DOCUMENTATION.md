@@ -22,7 +22,7 @@ This document lists all API resources and their attributes organized by microser
   - Request: `PoolCreate` (name, location)
   - Response: `PoolRead`
   
-- **GET /pools/** - List all pools
+- **GET /pools/?location={location}** - List all pools (with optional location filter)
   - Query Params: `location` (optional filter)
   - Response: `list[PoolRead]`
   
@@ -59,13 +59,13 @@ This document lists all API resources and their attributes organized by microser
 - **GET /pools/{pool_id}/members/{user_id}** - Get a specific pool member
   - Response: `PoolMemberRead`
   
-- **GET /pools/members** - List all pool members across all pools
+- **GET /pools/members?user_id={user_id}** - List all pool members across all pools (with optional user filter)
   - Query Params: `user_id` (optional filter)
   - Response: `list[PoolMemberRead]`
   
 - **DELETE /pools/members/{user_id}** - Remove a user from their pool
   - Response: `PoolMemberDeleteResponse`
-  - Note: Automatically finds which pool the user is in
+  - Note: Automatically finds which pool the user is in, converts UUID to string for database query
 
 ---
 
@@ -92,7 +92,7 @@ This document lists all API resources and their attributes organized by microser
 - **GET /matches/{match_id}** - Get a specific match
   - Response: `MatchGet`
   
-- **GET /matches/** - List all matches
+- **GET /matches/?user_id={user_id}&pool_id={pool_id}&status_filter={status}** - List all matches with optional filters
   - Query Params: 
     - `pool_id` (optional filter)
     - `user_id` (optional - filter matches where user is a participant)
@@ -103,6 +103,10 @@ This document lists all API resources and their attributes organized by microser
   - Request: `MatchPatch` (pool_id, user1_id, user2_id, status - all optional)
   - Response: `MatchGet`
   - Note: Status is typically admin-only
+
+- **DELETE /matches/internal/cleanup/user/{user_id}/pool/{pool_id}** - Internal cleanup endpoint
+  - Response: `CleanupResponse`
+  - Note: Called by Cloud Function to remove non-accepted matches when user leaves pool
 
 ---
 
@@ -144,20 +148,20 @@ This document lists all API resources and their attributes organized by microser
 
 #### Endpoints:
 - **GET /users/{user_id}/pool** - Get user's pool information
-  - Response: `UserPoolInfoResponse`
+  - Response: `UserPoolRead`
   
 - **POST /users/{user_id}/pool** - Add user to a pool by location
-  - Request: `UserPoolPost` (location, coord_x, coord_y)
+  - Request: `UserPoolCreate` (location, coord_x, coord_y)
   - Response: `UserPoolResponse`
   - Note: Creates new pool if none exist at location, or adds to existing pool
   
 - **PATCH /users/{user_id}/pool** - Update user's coordinates in pool
-  - Request: `UserPoolCoordinatesPatch` (coord_x, coord_y)
-  - Response: `UserPoolInfoResponse`
+  - Request: `UserPoolUpdate` (coord_x, coord_y)
+  - Response: `UserPoolRead`
   - Note: Currently not fully implemented
   
 - **DELETE /users/{user_id}/pool** - Remove user from their pool
-  - Response: `UserPoolDeleteResponse`
+  - Response: `UserPoolDelete`
   - Note: Cascades to matches and decisions
 
 ---
@@ -176,7 +180,7 @@ This document lists all API resources and their attributes organized by microser
 
 #### Endpoints:
 - **GET /users/{user_id}/pool/members** - Get all members in user's pool
-  - Response: `UserPoolMembersResponse`
+  - Response: `UserPoolMembersRead`
 
 ---
 
@@ -195,7 +199,7 @@ This document lists all API resources and their attributes organized by microser
 
 #### Endpoints:
 - **GET /users/{user_id}/matches** - Get all matches for a user
-  - Response: `UserMatchesResponse`
+  - Response: `UserMatchesRead`
   
 - **POST /users/{user_id}/matches** - Generate random matches for user
   - Response: `GenerateMatchesResponse`
@@ -212,10 +216,10 @@ This document lists all API resources and their attributes organized by microser
 
 #### Endpoints:
 - **GET /users/{user_id}/decisions** - Get all decisions made by user
-  - Response: `UserDecisionsResponse`
+  - Response: `UserDecisionsRead`
   
 - **POST /users/{user_id}/matches/{match_id}/decisions** - Submit decision for a match
-  - Request: `UserDecisionPost` (decision: "accept" or "reject")
+  - Request: `UserDecisionCreate` (decision: "accept" or "reject")
   - Response: Decision object
   - Note: Validates user is participant in the match
 
@@ -254,6 +258,7 @@ This document lists all API resources and their attributes organized by microser
 ### UUID vs String:
 - Database uses **CHAR(36)** for UUIDs stored as strings
 - API accepts and returns **UUID** type (validated by Pydantic)
+- **CRITICAL**: Database queries must convert UUID objects to strings using `str(uuid)` for comparisons
 - Some composite endpoints use **string** for user_id for flexibility
 
 ### Timestamps:
@@ -275,8 +280,18 @@ This document lists all API resources and their attributes organized by microser
   - Match generation
   - Decision submission
   - Provides simplified user experience
-
 ### Service Communication:
 - Uses HTTP REST calls between services
 - Configurable via `POOLS_SERVICE_URL` environment variable
+- Production URL: `https://matches-service-s556fwc6ua-uc.a.run.app`
+- **Trailing Slash Usage**:
+  - Routes with query params: `/pools/?location=`, `/matches/?user_id=`
+  - POST to collections: `/pools/`, `/matches/`
+  - Sub-resources: No trailing slash (e.g., `/pools/{id}/members`)
+
+### Event-Driven Architecture:
+- **Pub/Sub Topic**: `user_left_pool`
+- **Event Flow**: User leaves pool → Event published → Cloud Function → Match cleanup
+- **Cloud Function**: `match-cleanup-handler` (Gen2, Python 3.11)
+- **Cleanup Endpoint**: `DELETE /matches/internal/cleanup/user/{user_id}/pool/{pool_id}`
 - Defaults to `http://localhost:8000` for local development

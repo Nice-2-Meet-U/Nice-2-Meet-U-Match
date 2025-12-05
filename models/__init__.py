@@ -6,9 +6,20 @@ from .pool import (
     PoolRead,
     PoolMemberBase,
     PoolMemberCreate,
+    PoolMemberPatch,
     PoolMemberRead,
+    PoolMemberDeleteResponse,
 )
-from .match import MatchBase, MatchPost, MatchPut, MatchPatch, MatchGet, MatchStatus
+from .match import (
+    MatchBase,
+    MatchPost,
+    MatchPut,
+    MatchPatch,
+    MatchGet,
+    MatchStatus,
+    MatchCleanupDetail,
+    CleanupResponse,
+)
 from .decisions import (
     DecisionBase,
     DecisionPost,
@@ -17,6 +28,7 @@ from .decisions import (
     DecisionGet,
     DecisionValue,
 )
+from .health import HealthCheckResponse
 
 __all__ = [
     # pool
@@ -27,7 +39,9 @@ __all__ = [
     "PoolRead",
     "PoolMemberBase",
     "PoolMemberCreate",
+    "PoolMemberPatch",
     "PoolMemberRead",
+    "PoolMemberDeleteResponse",
     # match
     "MatchBase",
     "MatchPost",
@@ -35,6 +49,8 @@ __all__ = [
     "MatchPatch",
     "MatchGet",
     "MatchStatus",
+    "MatchCleanupDetail",
+    "CleanupResponse",
     # decision
     "DecisionBase",
     "DecisionPost",
@@ -42,4 +58,6 @@ __all__ = [
     "DecisionPatch",
     "DecisionGet",
     "DecisionValue",
+    # health
+    "HealthCheckResponse",
 ]

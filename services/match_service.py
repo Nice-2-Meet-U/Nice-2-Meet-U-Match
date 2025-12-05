@@ -30,7 +30,7 @@ def create_match(
 
     # Check membership
     for uid in (user1_id, user2_id):
-        exists = db.query(models.PoolMember).get((str(pool_id), str(uid)))
+        exists = db.get(models.PoolMember, (str(pool_id), str(uid)))
         if not exists:
             raise ValueError(f"User {uid} is not a member of pool {pool_id}")
 
@@ -85,6 +85,9 @@ def list_matches(
             (models.Match.user1_id == str(user_id)) | (models.Match.user2_id == str(user_id))
         )
     if status_filter:
+        # Validate status against allowed values
+        if status_filter not in {s.value for s in models.MatchStatus}:
+            raise ValueError(f"Invalid status filter: {status_filter}")
         q = q.filter(models.Match.status == status_filter)
     return q.order_by(models.Match.created_at.desc()).all()
 
@@ -98,22 +101,42 @@ def patch_match(
     user2_id: UUID | None = None,
     status: str | None = None,
 ):
-    """Partial update of a match."""
+    """Partial update of a match.
+    
+    Note: Changing pool_id or user IDs after creation is generally not recommended.
+    The primary use case is updating status.
+    """
     match = db.get(models.Match, str(match_id))
     if not match:
         raise ValueError("Match not found")
 
     changed = False
+    
+    # Update pool_id if provided
     if pool_id is not None:
         match.pool_id = str(pool_id)
         changed = True
+    
+    # Update user IDs if provided
     if user1_id is not None:
         match.user1_id = str(user1_id)
         changed = True
     if user2_id is not None:
         match.user2_id = str(user2_id)
         changed = True
+    
+    # Re-normalize user order if either user ID was changed
+    if user1_id is not None or user2_id is not None:
+        if match.user1_id == match.user2_id:
+            raise ValueError("Cannot have the same user on both sides")
+        if match.user1_id > match.user2_id:
+            match.user1_id, match.user2_id = match.user2_id, match.user1_id
+    
+    # Update status if provided (with validation)
     if status is not None:
+        # Validate status against enum
+        if status not in {s.value for s in models.MatchStatus}:
+            raise ValueError(f"Invalid status: {status}. Must be one of: {[s.value for s in models.MatchStatus]}")
         match.status = status
         changed = True
 
@@ -122,3 +145,14 @@ def patch_match(
         db.commit()
         db.refresh(match)
     return match
+
+
+def delete_match(db: Session, match_id: UUID):
+    """Delete a match and its associated decisions (cascades via DB)."""
+    match = db.get(models.Match, str(match_id))
+    if not match:
+        raise ValueError("Match not found")
+    
+    db.delete(match)
+    db.commit()
+    return True

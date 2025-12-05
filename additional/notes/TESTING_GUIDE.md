@@ -4,12 +4,7 @@
 
 Before testing, ensure:
 
-1. **Dependencies Installed**
-   ```bash
-   pip install google-cloud-pubsub
-   ```
-
-2. **Cloud Function Deployed**
+1. **Cloud Function Deployed**
    ```bash
    cd cloud_functions
    gcloud functions deploy match-cleanup-handler \
@@ -19,59 +14,73 @@ Before testing, ensure:
      --source . \
      --entry-point handle_pool_event \
      --trigger-topic user_left_pool \
-     --set-env-vars MATCHES_SERVICE_URL='https://matches-service-870022169527.us-central1.run.app' \
+     --set-env-vars MATCHES_SERVICE_URL='https://matches-service-s556fwc6ua-uc.a.run.app' \
      --timeout 60s \
      --memory 256MB
    ```
 
-3. **Matches Service Redeployed** (with event publishing enabled)
+2. **Matches Service Deployed**
    ```bash
-   # Ensure .env has ENABLE_EVENT_PUBLISHING=true
-   gcloud run deploy matches-service --source . --region us-central1
+   # Use the deployment script
+   ./deploy.sh
+   ```
+
+3. **Service URL**
+   ```
+   https://matches-service-s556fwc6ua-uc.a.run.app
    ```
 
 ## Test Scenarios
 
-### Test 1: Local API Testing (Without Events)
+### Test 1: Direct Cleanup Endpoint Testing
 
 Test the cleanup endpoint directly:
 
 ```bash
-# Get your auth token
-export TOKEN="your-jwt-token-here"
+# Service URL
+export SERVICE_URL="https://matches-service-s556fwc6ua-uc.a.run.app"
 
-# Create test data first (via your API)
-# - Create a pool
-# - Add 2+ users to the pool
-# - Create some matches between users (some accepted, some not)
+# Test UUIDs
+export TEST_USER_ID="ffffffff-ffff-4fff-8fff-ffffffffffff"
+export TEST_POOL_ID="0d47b7c6-a0cd-4783-aeee-18f93295503f"
 
-# Test cleanup endpoint directly
+# 1. Join a pool
+curl -X POST "$SERVICE_URL/users/$TEST_USER_ID/pool" \
+  -H "Content-Type: application/json" \
+  -d '{"location": "NYC", "coord_x": 1.0, "coord_y": 1.0}'
+
+# 2. Generate matches
+curl -X POST "$SERVICE_URL/users/$TEST_USER_ID/matches" \
+  -H "Content-Type: application/json" \
+  -d '{"max_matches": 5}'
+
+# 3. Get matches (note the match IDs)
+curl "$SERVICE_URL/matches/?user_id=$TEST_USER_ID"
+
+# 4. Test cleanup endpoint directly
 curl -X DELETE \
-  "https://matches-service-870022169527.us-central1.run.app/matches/internal/cleanup/user/{user_id}/pool/{pool_id}" \
-  -H "Authorization: Bearer $TOKEN"
+  "$SERVICE_URL/matches/internal/cleanup/user/$TEST_USER_ID/pool/$TEST_POOL_ID"
 
-# Verify: Only non-accepted matches for that user in that pool were deleted
-# Query matches to confirm
-curl -X GET \
-  "https://matches-service-870022169527.us-central1.run.app/matches?pool_id={pool_id}" \
-  -H "Authorization: Bearer $TOKEN"
+# 5. Verify matches were deleted
+curl "$SERVICE_URL/matches/?user_id=$TEST_USER_ID"
 ```
 
-### Test 2: Event Publishing Test (Local)
+### Test 2: Event Publishing Test
 
 Test if events are published when users leave pools:
 
 ```bash
-# Monitor Pub/Sub messages
+# Service URL
+export SERVICE_URL="https://matches-service-s556fwc6ua-uc.a.run.app"
+
+# Monitor Pub/Sub messages (optional - create a test subscription)
 gcloud pubsub subscriptions create test-sub --topic=user_left_pool --project=cloudexploration-477701
 
 # In one terminal, pull messages
 gcloud pubsub subscriptions pull test-sub --auto-ack --limit=10 --project=cloudexploration-477701
 
-# In another terminal, remove a user from a pool
-curl -X DELETE \
-  "https://matches-service-870022169527.us-central1.run.app/pools/{pool_id}/members/{user_id}" \
-  -H "Authorization: Bearer $TOKEN"
+# In another terminal, use the user-match composite endpoint to leave pool
+curl -X DELETE "$SERVICE_URL/users/$TEST_USER_ID/pool"
 
 # You should see a message in the subscription with:
 # {
@@ -80,19 +89,20 @@ curl -X DELETE \
 #   "pool_id": "...",
 #   "timestamp": "..."
 # }
-```
 
 ### Test 3: End-to-End Event Flow
 
-Test the complete flow from pool removal → Pub/Sub → Cloud Function → cleanup:
+Test the complete flow: leave pool → Pub/Sub event → Cloud Function → match cleanup
 
 **Setup:**
 ```bash
-# 1. Create a pool with multiple users
-curl -X POST "https://matches-service-870022169527.us-central1.run.app/pools" \
-  -H "Authorization: Bearer $TOKEN" \
+export SERVICE_URL="https://matches-service-s556fwc6ua-uc.a.run.app"
+export TEST_USER_ID="cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+
+# 1. Join a pool
+curl -X POST "$SERVICE_URL/users/$TEST_USER_ID/pool" \
   -H "Content-Type: application/json" \
-  -d '{
+  -d '{"location": "NYC", "coord_x": 2.0, "coord_y": 2.0}' '{
     "name": "Test Pool",
     "location": {"latitude": 37.7749, "longitude": -122.4194},
     "max_distance_km": 5
@@ -166,30 +176,39 @@ curl -X GET "https://matches-service-870022169527.us-central1.run.app/matches?po
 
 ### Test 4: Verify Cleanup Logic
 
-**Test Case: Accepted matches should NOT be deleted**
-```python
-# Create match between user1 and user2, both accept
-# Remove user1 from pool
-# Expected: Match still exists (status='accepted')
+**Note:** Current implementation deletes ALL non-accepted matches (status != 'accepted') when a user leaves a pool.
+
+**Test Case: Waiting matches should be deleted**
+```bash
+# Create match, don't submit any decisions
+# Remove user from pool
+# Expected: Match is deleted (status='waiting')
+
+export SERVICE_URL="https://matches-service-s556fwc6ua-uc.a.run.app"
+export TEST_USER="eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+
+# Join, generate match, leave
+curl -X POST "$SERVICE_URL/users/$TEST_USER/pool" \
+  -H "Content-Type: application/json" \
+  -d '{"location": "NYC", "coord_x": 3.0, "coord_y": 3.0}'
+
+curl -X POST "$SERVICE_URL/users/$TEST_USER/matches" \
+  -H "Content-Type: application/json" \
+  -d '{"max_matches": 1}'
+
+# Note the match ID, then leave
+curl -X DELETE "$SERVICE_URL/users/$TEST_USER/pool"
+
+# Verify match deleted
+curl "$SERVICE_URL/matches/{match_id}"
+# Expected: 404 Not Found
 ```
 
-**Test Case: Pending matches should be deleted**
-```python
-# Create match between user1 and user3, no decisions yet
-# Remove user1 from pool
-# Expected: Match is deleted (status='pending')
+**Test Case: Matches in other pools not affected**
+```bash
+# User is in multiple locations (not supported by current API)
+# Cleanup only affects the specific pool they left
 ```
-
-**Test Case: Rejected matches should be deleted**
-```python
-# Create match between user1 and user4, user1 rejects
-# Remove user1 from pool
-# Expected: Match is deleted (status='rejected')
-```
-
-**Test Case: Other pools not affected**
-```python
-# user1 is in pool_A and pool_B
 # user1 has matches in both pools
 # Remove user1 from pool_A
 # Expected: Only pool_A matches deleted, pool_B matches intact

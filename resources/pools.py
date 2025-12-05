@@ -20,7 +20,7 @@ from services.pool_service import (
     get_pool_member,
     list_all_pool_members,
 )
-from models.pool import PoolCreate, PoolRead, PoolPatch, PoolMemberCreate, PoolMemberRead, PoolMemberDeleteResponse
+from models.pool import PoolCreate, PoolRead, PoolPatch, PoolMemberCreate, PoolMemberPatch, PoolMemberRead, PoolMemberDeleteResponse
 
 router = APIRouter()
 
@@ -175,4 +175,38 @@ def get_pool_member_endpoint(
     if not member:
         raise HTTPException(status_code=404, detail="User is not a member of this pool")
     return member
+
+
+@router.patch(
+    "/{pool_id}/members/{user_id}", response_model=PoolMemberRead
+)
+def update_pool_member_endpoint(
+    pool_id: UUID, user_id: UUID, payload: PoolMemberPatch, db: Session = Depends(get_db)
+):
+    """Update a pool member's coordinates (partial update)."""
+    try:
+        # Get the existing member
+        member = db.query(models.PoolMember).filter(
+            models.PoolMember.pool_id == str(pool_id),
+            models.PoolMember.user_id == str(user_id)
+        ).first()
+        
+        if not member:
+            raise HTTPException(status_code=404, detail="User is not a member of this pool")
+        
+        # Update only provided fields
+        if payload.coord_x is not None:
+            member.coord_x = payload.coord_x
+        if payload.coord_y is not None:
+            member.coord_y = payload.coord_y
+        
+        db.commit()
+        db.refresh(member)
+        return member
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update pool member: {str(e)}")
 

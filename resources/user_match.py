@@ -17,16 +17,17 @@ from services.user_match_service import (
     submit_decision_for_user_match,
 )
 from models.user_match import (
-    UserPoolPost,
+    UserPoolCreate,
     UserPoolResponse,
-    UserPoolInfoResponse,
-    UserMatchesResponse,
+    UserPoolRead,
+    UserMatchesRead,
     GenerateMatchesResponse,
-    UserPoolMembersResponse,
-    UserDecisionsResponse,
-    UserPoolDeleteResponse,
-    UserPoolCoordinatesPatch,
-    UserDecisionPost,
+    UserPoolMembersRead,
+    UserDecisionsRead,
+    UserPoolDelete,
+    UserPoolUpdate,
+    UserDecisionCreate,
+    UserDecisionResponse,
 )
 
 router = APIRouter()
@@ -35,7 +36,7 @@ router = APIRouter()
 SERVICE_URL = os.getenv("POOLS_SERVICE_URL", "http://localhost:8000")
 
 
-@router.get("/{user_id}/pool", response_model=UserPoolInfoResponse)
+@router.get("/{user_id}/pool", response_model=UserPoolRead)
 def get_user_pool(user_id: UUID):
     """
     Get the pool information for a specific user.
@@ -59,14 +60,14 @@ def get_user_pool(user_id: UUID):
 
 
 @router.post("/{user_id}/pool", response_model=UserPoolResponse, status_code=status.HTTP_201_CREATED)
-def add_user_to_pool(user_id: UUID, payload: UserPoolPost):
+def add_user_to_pool(user_id: UUID, payload: UserPoolCreate):
     """
     Add a user to a pool by location. Creates a new pool if none exists for the location,
     otherwise adds to a random existing pool at that location.
     """
     try:
         result = add_user_to_pool_service(
-            user_id=str(user_id),
+            user_id=user_id,
             location=payload.location,
             coord_x=payload.coord_x,
             coord_y=payload.coord_y,
@@ -109,7 +110,7 @@ def generate_matches_for_user(user_id: UUID):
         )
 
 
-@router.get("/{user_id}/matches", response_model=UserMatchesResponse)
+@router.get("/{user_id}/matches", response_model=UserMatchesRead)
 def get_user_matches(user_id: UUID):
     """
     Get all matches for a specific user.
@@ -121,7 +122,7 @@ def get_user_matches(user_id: UUID):
             matches_service_url=SERVICE_URL,
         )
         return {
-            "user_id": str(user_id),
+            "user_id": user_id,
             "matches_count": len(matches),
             "matches": matches,
         }
@@ -134,7 +135,7 @@ def get_user_matches(user_id: UUID):
         )
 
 
-@router.get("/{user_id}/pool/members", response_model=UserPoolMembersResponse)
+@router.get("/{user_id}/pool/members", response_model=UserPoolMembersRead)
 def get_user_pool_members(user_id: UUID):
     """
     Get all users in the same pool as the specified user.
@@ -146,7 +147,7 @@ def get_user_pool_members(user_id: UUID):
             pools_service_url=SERVICE_URL,
         )
         return {
-            "user_id": str(user_id),
+            "user_id": user_id,
             "members_count": len(members),
             "members": members,
         }
@@ -161,7 +162,7 @@ def get_user_pool_members(user_id: UUID):
         )
 
 
-@router.get("/{user_id}/decisions", response_model=UserDecisionsResponse)
+@router.get("/{user_id}/decisions", response_model=UserDecisionsRead)
 def get_user_decisions(user_id: UUID):
     """
     Get all decisions made by a specific user.
@@ -173,7 +174,7 @@ def get_user_decisions(user_id: UUID):
             base_url=SERVICE_URL,
         )
         return {
-            "user_id": str(user_id),
+            "user_id": user_id,
             "decisions_count": len(decisions),
             "decisions": decisions,
         }
@@ -186,7 +187,7 @@ def get_user_decisions(user_id: UUID):
         )
 
 
-@router.delete("/{user_id}/pool", response_model=UserPoolDeleteResponse)
+@router.delete("/{user_id}/pool", response_model=UserPoolDelete)
 def remove_user_from_pool(user_id: UUID):
     """
     Remove a user from their pool.
@@ -209,11 +210,11 @@ def remove_user_from_pool(user_id: UUID):
         )
 
 
-@router.patch("/{user_id}/pool", response_model=UserPoolInfoResponse)
-def update_user_pool_coordinates(user_id: UUID, payload: UserPoolCoordinatesPatch):
+@router.patch("/{user_id}/pool", response_model=UserPoolRead)
+def update_user_pool_coordinates(user_id: UUID, payload: UserPoolUpdate):
     """
     Update a user's coordinates in their pool.
-    Note: Currently not implemented in atomic service - use DELETE + POST workflow instead.
+    Performs a partial update of the user's location coordinates.
     """
     try:
         result = update_user_pool_coordinates_service(
@@ -224,8 +225,6 @@ def update_user_pool_coordinates(user_id: UUID, payload: UserPoolCoordinatesPatc
         )
         return result
 
-    except NotImplementedError as e:
-        raise HTTPException(status_code=501, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except RuntimeError as e:
@@ -238,11 +237,11 @@ def update_user_pool_coordinates(user_id: UUID, payload: UserPoolCoordinatesPatc
 
 @router.post(
     "/{user_id}/matches/{match_id}/decisions",
-    response_model=dict,
+    response_model=UserDecisionResponse,
     status_code=status.HTTP_201_CREATED,
 )
 def submit_user_match_decision(
-    user_id: UUID, match_id: UUID, payload: UserDecisionPost
+    user_id: UUID, match_id: UUID, payload: UserDecisionCreate
 ):
     """
     Submit a decision (accept/reject) for a match on behalf of a user.

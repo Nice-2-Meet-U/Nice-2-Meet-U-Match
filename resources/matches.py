@@ -7,11 +7,12 @@ from typing import Optional
 from uuid import UUID
 
 from frameworks.db.session import get_db
-from services.match_service import create_match, get_match, list_matches, patch_match
-from services.decision_service import submit_decision, list_decisions
+from services.match_service import create_match, get_match, list_matches, patch_match, delete_match
+from services.decision_service import submit_decision, list_decisions, update_decision, delete_decision
 from services.match_cleanup_service import cleanup_user_matches
-from models.match import MatchPost, MatchGet, MatchPatch, MatchStatus
-from models.decisions import DecisionPost, DecisionGet
+from models.match import MatchPost, MatchGet, MatchPatch, MatchStatus, CleanupResponse
+from models.decisions import DecisionPost, DecisionGet, DecisionPatch
+from models.health import HealthCheckResponse
 from frameworks.db import models
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
@@ -95,7 +96,17 @@ def patch_match_endpoint(
     return match
 
 
-@router.get("/db-ping")
+@router.delete("/{match_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_match_endpoint(match_id: UUID, db: Session = Depends(get_db)):
+    """Delete a match (cascades to decisions)."""
+    try:
+        delete_match(db, match_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return None
+
+
+@router.get("/db-ping", response_model=HealthCheckResponse)
 def db_ping(db: Session = Depends(get_db)):
     db.execute(text("SELECT 1"))
     return {"ok": True}
@@ -156,7 +167,7 @@ def get_match_decision_endpoint(
     db: Session = Depends(get_db)
 ):
     """Get a specific user's decision for a match."""
-    decision = db.get(models.MatchDecision, (str(match_id), str(user_id)))
+    decision = db.get(models.MatchDecision, (match_id, user_id))
     if not decision:
         raise HTTPException(
             status_code=404, 
@@ -165,12 +176,56 @@ def get_match_decision_endpoint(
     return decision
 
 
+@router.patch("/{match_id}/decisions/{user_id}", response_model=DecisionGet)
+def update_decision_endpoint(
+    match_id: UUID,
+    user_id: UUID,
+    payload: DecisionPatch,
+    db: Session = Depends(get_db)
+):
+    """Update a user's decision for a match."""
+    # Check if decision exists
+    existing = db.get(models.MatchDecision, (match_id, user_id))
+    if not existing:
+        raise HTTPException(status_code=404, detail="Decision not found")
+    
+    try:
+        update_decision(
+            db,
+            match_id=match_id,
+            user_id=user_id,
+            decision=payload.decision,
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    
+    # Return the updated decision
+    updated = db.get(models.MatchDecision, (match_id, user_id))
+    return updated
+
+
+@router.delete("/{match_id}/decisions/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_decision_endpoint(
+    match_id: UUID,
+    user_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """Delete a user's decision for a match."""
+    try:
+        delete_decision(db, match_id=match_id, user_id=user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return None
+
+
 # =========================
 # Internal Cleanup Endpoints
 # =========================
 
 
-@router.delete("/internal/cleanup/user/{user_id}/pool/{pool_id}")
+@router.delete("/internal/cleanup/user/{user_id}/pool/{pool_id}", response_model=CleanupResponse)
 def cleanup_user_matches_endpoint(
     user_id: UUID,
     pool_id: UUID,

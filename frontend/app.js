@@ -1,5 +1,5 @@
 // Configuration
-const API_BASE_URL = 'https://matches-service-870022169527.us-central1.run.app';
+const API_BASE_URL = 'https://matches-service-s556fwc6ua-uc.a.run.app';
 
 // Utility Functions
 function generateUUID() {

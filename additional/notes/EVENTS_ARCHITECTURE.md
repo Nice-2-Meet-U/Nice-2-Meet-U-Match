@@ -6,33 +6,34 @@ This system uses Google Cloud Pub/Sub to implement an event-driven architecture 
 ## Architecture
 
 ```
-┌─────────────────┐         ┌──────────────────┐         ┌─────────────────┐
-│  Pools Service  │ ─────> │  Google Cloud    │ ─────> │ Cloud Function  │
-│                 │ publish │    Pub/Sub       │ trigger│                 │
-└─────────────────┘         └──────────────────┘         └────────┬────────┘
-                                                                   │ HTTP DELETE
-                                                                   ▼
-                                                          ┌─────────────────┐
-                                                          │ Matches Service │
-                                                          │ /internal/      │
-                                                          │   cleanup       │
-                                                          └─────────────────┘
+┌─────────────────────┐         ┌──────────────────┐         ┌─────────────────┐
+│  User-Match Service │ ─────> │  Google Cloud    │ ─────> │ Cloud Function  │
+│  (DELETE /users/    │ publish │    Pub/Sub       │ trigger│  match-cleanup- │
+│   {id}/pool)        │         │  (user_left_pool)│         │    handler      │
+└─────────────────────┘         └──────────────────┘         └────────┬────────┘
+                                                                       │ HTTP DELETE
+                                                                       ▼
+                                                              ┌─────────────────┐
+                                                              │ Matches Service │
+                                                              │ /matches/       │
+                                                              │  internal/      │
+                                                              │   cleanup       │
+                                                              └─────────────────┘
 ```
 
 ## Components
 
 ### 1. Event Publisher (`services/event_publisher.py`)
-- **Location**: Pools Service
+- **Location**: User-Match Service
 - **Purpose**: Publishes events to Google Cloud Pub/Sub
 - **Events Published**:
-  - `pool_member_removed`: When a user is removed from a pool (DELETE /pools/members/{user_id})
+  - `pool_member_removed`: When a user leaves a pool (DELETE /users/{user_id}/pool)
 
 **Configuration**:
 ```bash
 # Environment variables
-GCP_PROJECT_ID=your-project-id
-POOL_EVENTS_TOPIC=pool-events
-ENABLE_EVENT_PUBLISHING=true
+GCP_PROJECT_ID=cloudexploration-477701
+PUBSUB_TOPIC=user_left_pool
 ```
 
 ### 2. Match Cleanup Service (`services/match_cleanup_service.py`)
@@ -47,31 +48,36 @@ ENABLE_EVENT_PUBLISHING=true
 - ❌ **Deletes**: Matches with status = `waiting` or `rejected`
 - 🗑️ **Cascades**: Deletes associated match decisions
 ### 3. Cloud Function Handler (`cloud_functions/match_cleanup_handler.py`)
-- **Location**: Google Cloud Functions
-- **Trigger**: Pub/Sub topic `pool-events`
-- **Purpose**: Receives events and calls matches service API
+### 3. Cloud Function Handler (`cloud_functions/match_cleanup_handler.py`)
+- **Location**: Google Cloud Functions Gen2
+- **Trigger**: Pub/Sub topic `user_left_pool`
+- **Purpose**: Receives events and calls matches service cleanup endpoint via HTTP
 - **Runtime**: Python 3.11
-- **Dependencies**: `google-cloud-pubsub`, `requests`
+- **Dependencies**: `google-cloud-pubsub`, `requests`, `functions-framework`
+- **Environment Variables**:
+  - `MATCHES_SERVICE_URL`: `https://matches-service-s556fwc6ua-uc.a.run.app`
 
-**No database access needed** - calls HTTP API insteadents and executes cleanup
-- **Runtime**: Python 3.11
-
+**Note**: No database access needed - calls HTTP API instead
 ## Event Flow
 ## Event Flow
 
 ### Pool Member Removed
 
-1. **User calls**: `DELETE /users/{user_id}/pool` or `DELETE /pools/members/{user_id}`
-2. **Pools Service**:
-   - Removes user from pool_members table
-   - Updates pool member count
-   - Commits database transaction
-   - Publishes `pool_member_removed` event to Pub/Sub
+1. **User calls**: `DELETE /users/{user_id}/pool`
+2. **User-Match Service** (`services/user_match_service.py`):
+   - Calls pools service: `DELETE /pools/members/{user_id}`
+   - Pools service removes user from pool_members table
+   - Pools service updates pool member count
+   - Pools service commits database transaction
+   - **User-Match Service** publishes `pool_member_removed` event to Pub/Sub
 3. **Cloud Pub/Sub**:
-   - Receives event
+   - Receives event on topic `user_left_pool`
    - Triggers Cloud Function
-4. **Cloud Function**:
-   - Decodes event message
+4. **Cloud Function** (`cloud_functions/match_cleanup_handler.py`):
+   - Receives Pub/Sub message
+   - Decodes event payload
+   - Calls matches service: `DELETE /matches/internal/cleanup/user/{user_id}/pool/{pool_id}`
+5. **Matches Service** (`resources/matches.py`):
    - Calls `cleanup_user_matches(pool_id, user_id)`
    - Queries matches where:
 ### Event Message Format
@@ -80,20 +86,11 @@ ENABLE_EVENT_PUBLISHING=true
 {
   "event_type": "pool_member_removed",
   "pool_id": "11111111-1111-4111-8111-111111111111",
-  "user_id": "22222222-2222-4222-8222-222222222222",
-  "timestamp": "2025-12-05T10:30:00Z"
-}
-```
-
 **Attributes** (for message filtering):
 - `event_type`: `pool_member_removed`
 - `pool_id`: UUID of the pool
-- `user_id`: UUID of the user who was removedool deletion → cascades to → pool_members → (no FK) matches remain orphaned
-- The pool_id FK on matches handles cascade deletion
-### Event Message Format
-
-```json
-{
+- `user_id`: UUID of the user who was removed
+- `version`: `1` (event schema version)
   "event_type": "user_left_pool",
   "pool_id": "11111111-1111-4111-8111-111111111111",
   "user_id": "22222222-2222-4222-8222-222222222222",

@@ -10,6 +10,7 @@ import json
 import logging
 from typing import Optional
 from uuid import UUID
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,13 @@ class EventPublisher:
         else:
             self.publisher = None
             if self.enabled:
-                logger.warning("Event publishing enabled but not properly configured")
+                # More detailed misconfiguration logging
+                reasons = []
+                if not PUBSUB_AVAILABLE:
+                    reasons.append("google-cloud-pubsub library not installed")
+                if not self.project_id:
+                    reasons.append("GCP_PROJECT_ID not set")
+                logger.warning(f"Event publishing enabled but not properly configured: {', '.join(reasons)}")
     
     def publish_user_left_pool(self, pool_id: UUID, user_id: UUID) -> Optional[str]:
         """
@@ -56,10 +63,11 @@ class EventPublisher:
             return None
         
         event_data = {
+            "version": "1",
             "event_type": "pool_member_removed",
             "pool_id": str(pool_id),
             "user_id": str(user_id),
-            "timestamp": None  # Will be set by Cloud Function
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
         try:

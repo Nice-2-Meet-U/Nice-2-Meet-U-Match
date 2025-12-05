@@ -13,7 +13,7 @@ def submit_decision(
     match_id: UUID,
     user_id: UUID,
     decision: models.DecisionValue,  # Enum on your ORM
-):
+) -> models.Match:
     """
     Upsert a decision (match_id, user_id) and atomically recompute match.status.
     Returns the updated Match row.
@@ -25,42 +25,48 @@ def submit_decision(
     if str(user_id) not in (match.user1_id, match.user2_id):
         raise PermissionError("User is not a participant in this match")
 
-    # MySQL-compatible upsert and status update
-    # First, upsert the decision
-    upsert_sql = text(
-        """
-        INSERT INTO match_decisions (match_id, user_id, decision, decided_at)
-        VALUES (:mid, :uid, :decision, NOW())
-        ON DUPLICATE KEY UPDATE
-            decision = VALUES(decision),
-            decided_at = NOW()
-        """
-    )
-    db.execute(
-        upsert_sql, {"mid": str(match_id), "uid": str(user_id), "decision": decision.value}
-    )
-    
-    # Then, compute and update match status
-    status_sql = text(
-        """
-        UPDATE matches m
-        SET status = CASE
-            WHEN EXISTS (
-                SELECT 1 FROM match_decisions md
-                WHERE md.match_id = m.match_id AND md.decision = 'reject'
-            ) THEN 'rejected'
-            WHEN (
-                SELECT COUNT(*) FROM match_decisions md
-                WHERE md.match_id = m.match_id AND md.decision = 'accept'
-            ) = 2 THEN 'accepted'
-            ELSE 'waiting'
-        END,
-        updated_at = NOW()
-        WHERE m.match_id = :mid
-        """
-    )
-    db.execute(status_sql, {"mid": str(match_id)})
-    db.commit()
+    try:
+        # MySQL-compatible upsert and status update
+        # First, upsert the decision
+        upsert_sql = text(
+            """
+            INSERT INTO match_decisions (match_id, user_id, decision, decided_at)
+            VALUES (:mid, :uid, :decision, NOW())
+            ON DUPLICATE KEY UPDATE
+                decision = VALUES(decision),
+                decided_at = NOW()
+            """
+        )
+        db.execute(
+            upsert_sql, {"mid": str(match_id), "uid": str(user_id), "decision": decision.value}
+        )
+        
+        # Then, compute and update match status
+        status_sql = text(
+            """
+            UPDATE matches m
+            SET status = CASE
+                WHEN EXISTS (
+                    SELECT 1 FROM match_decisions md
+                    WHERE md.match_id = m.match_id AND md.decision = 'reject'
+                ) THEN 'rejected'
+                WHEN (
+                    SELECT COUNT(*) FROM match_decisions md
+                    WHERE md.match_id = m.match_id AND md.decision = 'accept'
+                ) = 2 THEN 'accepted'
+                ELSE 'waiting'
+            END,
+            updated_at = NOW()
+            WHERE m.match_id = :mid
+            """
+        )
+        db.execute(status_sql, {"mid": str(match_id)})
+        db.commit()
+        db.refresh(match)
+        return match
+    except Exception:
+        db.rollback()
+        raise
 
 def list_decisions(
     db: Session,
@@ -75,3 +81,67 @@ def list_decisions(
     if user_id:
         q = q.filter(models.MatchDecision.user_id == str(user_id))
     return q.order_by(models.MatchDecision.decided_at.desc()).all()
+
+
+def update_decision(
+    db: Session,
+    *,
+    match_id: UUID,
+    user_id: UUID,
+    decision: models.DecisionValue,
+) -> models.Match:
+    """
+    Update an existing decision and recompute match status.
+    This is essentially the same as submit_decision (upsert behavior).
+    Returns the updated Match row.
+    """
+    # Reuse submit_decision logic since it already handles upserts
+    return submit_decision(db, match_id=match_id, user_id=user_id, decision=decision)
+
+
+def delete_decision(
+    db: Session,
+    *,
+    match_id: UUID,
+    user_id: UUID,
+) -> models.Match:
+    """
+    Delete a decision and recompute match status.
+    Returns the updated Match row, raises ValueError if not found.
+    """
+    decision = db.get(models.MatchDecision, (str(match_id), str(user_id)))
+    if not decision:
+        raise ValueError("Decision not found")
+    
+    try:
+        db.delete(decision)
+        
+        # Recompute match status after deletion
+        status_sql = text(
+            """
+            UPDATE matches m
+            SET status = CASE
+                WHEN EXISTS (
+                    SELECT 1 FROM match_decisions md
+                    WHERE md.match_id = m.match_id AND md.decision = 'reject'
+                ) THEN 'rejected'
+                WHEN (
+                    SELECT COUNT(*) FROM match_decisions md
+                    WHERE md.match_id = m.match_id AND md.decision = 'accept'
+                ) = 2 THEN 'accepted'
+                ELSE 'waiting'
+            END,
+            updated_at = NOW()
+            WHERE m.match_id = :mid
+            """
+        )
+        db.execute(status_sql, {"mid": str(match_id)})
+        db.commit()
+        
+        # Fetch and return the updated match
+        match = db.get(models.Match, str(match_id))
+        db.refresh(match)
+        return match
+    except Exception:
+        db.rollback()
+        raise

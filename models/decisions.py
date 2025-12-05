@@ -73,25 +73,22 @@ class DecisionPut(DecisionBase):
 
 
 class DecisionPatch(BaseModel):
-    """Partial update of a decision."""
+    """Partial update of a decision (typically just changing the decision value)."""
 
-    match_id: Optional[UUID] = Field(
-        None,
-        description="If moving the decision to another match (rare).",
-        json_schema_extra={"example": "55555555-5555-4555-8555-555555555555"},
-    )
-    user_id: Optional[UUID] = Field(
-        None,
-        description="Change the decider (admin only).",
-        json_schema_extra={"example": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"},
-    )
-    decision: Optional[DecisionValue] = Field(
-        None,
+    decision: DecisionValue = Field(
+        ...,
         description="Update to 'accept' or 'reject'.",
         json_schema_extra={"example": "accept"},
     )
 
-    model_config = ConfigDict(json_schema_extra={"examples": [{"decision": "accept"}]})
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"decision": "accept"},
+                {"decision": "reject"}
+            ]
+        }
+    )
 
 
 class DecisionGet(DecisionBase):

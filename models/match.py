@@ -160,3 +160,54 @@ class MatchGet(MatchBase):
             ]
         },
     )
+
+
+class MatchCleanupDetail(BaseModel):
+    """Details about a single deleted match."""
+    
+    match_id: UUID = Field(..., description="ID of the deleted match")
+    status: MatchStatus = Field(..., description="Status of the match before deletion")
+    decisions_deleted: int = Field(..., description="Number of decisions deleted with this match")
+    
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "examples": [
+                {
+                    "match_id": "44444444-4444-4444-8444-444444444444",
+                    "status": "waiting",
+                    "decisions_deleted": 2
+                }
+            ]
+        }
+    )
+
+
+class CleanupResponse(BaseModel):
+    """Response model for match cleanup operations."""
+    
+    pool_id: UUID = Field(..., description="Pool from which matches were cleaned")
+    user_id: UUID = Field(..., description="User whose matches were cleaned")
+    matches_deleted: int = Field(..., description="Total number of matches deleted")
+    decisions_deleted: int = Field(..., description="Total number of decisions deleted")
+    matches: list[MatchCleanupDetail] = Field(default_factory=list, description="Details of deleted matches")
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "examples": [
+                {
+                    "pool_id": "11111111-1111-4111-8111-111111111111",
+                    "user_id": "22222222-2222-4222-8222-222222222222",
+                    "matches_deleted": 3,
+                    "decisions_deleted": 5,
+                    "matches": [
+                        {
+                            "match_id": "44444444-4444-4444-8444-444444444444",
+                            "status": "waiting",
+                            "decisions_deleted": 2
+                        }
+                    ]
+                }
+            ]
+        }
+    )
