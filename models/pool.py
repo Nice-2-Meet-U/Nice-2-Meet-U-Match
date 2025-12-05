@@ -39,15 +39,18 @@ class PoolRead(PoolBase):
 
 # ---- Pool Member models ----
 class PoolMemberBase(BaseModel):
-    user_id: UUID
+    user_id: str
 
 
 class PoolMemberCreate(PoolMemberBase):
-    pass
+    coord_x: Optional[float] = None
+    coord_y: Optional[float] = None
 
 
 class PoolMemberRead(PoolMemberBase):
     pool_id: UUID
+    coord_x: Optional[float] = None
+    coord_y: Optional[float] = None
     joined_at: datetime
 
     model_config = ConfigDict(

@@ -146,6 +146,8 @@ def add_pool_member_endpoint(
             db,
             pool_id=pool_id,
             user_id=payload.user_id,
+            coord_x=payload.coord_x,
+            coord_y=payload.coord_y,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

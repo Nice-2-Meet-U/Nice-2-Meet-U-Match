@@ -14,7 +14,6 @@ from datetime import datetime
 class UserPoolBase(BaseModel):
     """Base model for user pool operations."""
 
-    user_id: str = Field(..., description="The user ID")
     location: str = Field(..., description="The location where the pool is located")
     coord_x: Optional[float] = Field(None, description="X coordinate of the user")
     coord_y: Optional[float] = Field(None, description="Y coordinate of the user")

@@ -5,6 +5,7 @@ from sqlalchemy import (
     ForeignKey,
     Enum,
     TIMESTAMP,
+    Float,
     func,
     UniqueConstraint,
 )
@@ -48,6 +49,8 @@ class PoolMember(Base):
         CHAR(36), ForeignKey("pools.id", ondelete="CASCADE"), primary_key=True
     )
     user_id = Column(CHAR(36), primary_key=True)
+    coord_x = Column(Float, nullable=True)
+    coord_y = Column(Float, nullable=True)
     joined_at = Column(TIMESTAMP, server_default=func.now())
 
     pool = relationship("Pool", back_populates="members")

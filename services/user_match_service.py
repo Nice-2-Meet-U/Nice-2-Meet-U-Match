@@ -69,6 +69,10 @@ def add_user_to_pool_service(
         pools_response.raise_for_status()
         pools = pools_response.json()
 
+        # Ensure pools is a list
+        if not isinstance(pools, list):
+            raise RuntimeError(f"Unexpected response format from pools service: {type(pools)}")
+
         # Filter out full pools
         pools = [p for p in pools if p.get("member_count", 0) < max_pool_size]
 
@@ -84,6 +88,10 @@ def add_user_to_pool_service(
             )
             pool_response.raise_for_status()
             pool = pool_response.json()
+            
+            # Ensure pool is a dict
+            if not isinstance(pool, dict):
+                raise RuntimeError(f"Unexpected pool response format: {type(pool)}")
         else:
             # Select a random pool from the available pools at this location
             pool = random.choice(pools)
@@ -108,6 +116,8 @@ def add_user_to_pool_service(
             "member": member,
         }
 
+    except KeyError as e:
+        raise RuntimeError(f"Missing expected field in response: {str(e)}")
     except requests.RequestException as e:
         raise RuntimeError(f"Service communication error: {str(e)}")
 

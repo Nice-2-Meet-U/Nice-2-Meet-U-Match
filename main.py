@@ -4,6 +4,10 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Routers
 from resources import matches, pools, user_match
@@ -23,6 +27,18 @@ async def lifespan(app: FastAPI):
     try:
         Base.metadata.create_all(bind=engine)
         logging.info("✅ Database tables ensured.")
+        
+        # Run migration to add coord_x and coord_y if they don't exist
+        from sqlalchemy import text, inspect
+        inspector = inspect(engine)
+        columns = [col['name'] for col in inspector.get_columns('pool_members')]
+        
+        if 'coord_x' not in columns or 'coord_y' not in columns:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE pool_members ADD COLUMN IF NOT EXISTS coord_x FLOAT NULL"))
+                conn.execute(text("ALTER TABLE pool_members ADD COLUMN IF NOT EXISTS coord_y FLOAT NULL"))
+                conn.commit()
+            logging.info("✅ Added coord_x and coord_y columns to pool_members")
     except Exception as e:
         logging.error(f"⚠️ Could not initialize database tables: {e}")
     

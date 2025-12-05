@@ -1,5 +1,5 @@
 // Configuration
-const API_BASE_URL = 'https://matches-service-870022169527.us-central1.run.app';
+const API_BASE_URL = 'http://localhost:8000';
 
 // Utility Functions
 function generateUUID() {
@@ -45,12 +45,28 @@ async function joinPool() {
     if (!userId) return;
 
     const location = document.getElementById('location').value.trim();
-    const coordX = parseFloat(document.getElementById('coordX').value);
-    const coordY = parseFloat(document.getElementById('coordY').value);
+    const coordXInput = document.getElementById('coordX').value.trim();
+    const coordYInput = document.getElementById('coordY').value.trim();
 
-    if (!location || isNaN(coordX) || isNaN(coordY)) {
-        showError('poolInfo', 'Please fill in all location fields');
+    if (!location) {
+        showError('poolInfo', 'Please enter a location');
         return;
+    }
+
+    // Build payload - only include coordinates if they're provided
+    const payload = { location };
+    
+    if (coordXInput && coordYInput) {
+        const coordX = parseFloat(coordXInput);
+        const coordY = parseFloat(coordYInput);
+        
+        if (isNaN(coordX) || isNaN(coordY)) {
+            showError('poolInfo', 'Invalid coordinate values');
+            return;
+        }
+        
+        payload.coord_x = coordX;
+        payload.coord_y = coordY;
     }
 
     try {
@@ -59,12 +75,7 @@ async function joinPool() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                user_id: userId,
-                location: location,
-                coord_x: coordX,
-                coord_y: coordY
-            })
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {

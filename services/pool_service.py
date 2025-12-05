@@ -85,6 +85,8 @@ def add_pool_member(
     *,
     pool_id: UUID,
     user_id: UUID,
+    coord_x: float | None = None,
+    coord_y: float | None = None,
 ):
     """
     Add a user to a pool.
@@ -102,6 +104,8 @@ def add_pool_member(
     member = models.PoolMember(
         pool_id=str(pool_id),
         user_id=str(user_id),
+        coord_x=coord_x,
+        coord_y=coord_y,
     )
     db.add(member)
     
